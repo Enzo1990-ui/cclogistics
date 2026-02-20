@@ -137,10 +137,12 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                         }
                     }
                     
+					int threshold = CCLConfig.INSTANCE.warehouseExcessThreshold.get();
+					
                     if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[LogisticsAI] Scan complete. Checking for excess items (>128)...");
                     for (ItemStorage storage : allItems.keySet()) {
-                        if (storage.getAmount() > 128) {
-                            int excess = storage.getAmount() - 128;
+                        if (storage.getAmount() > threshold) {
+                            int excess = storage.getAmount() - threshold;
                             if (excess > 64) excess = 64; 
                             
                             ItemStack stack = storage.getItemStack().copy();
