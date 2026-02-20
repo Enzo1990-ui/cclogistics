@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "cclogistics:block/freight_depot/freight_depot" },
+    "facing=south": { "model": "cclogistics:block/freight_depot/freight_depot", "y": 180 },
+    "facing=west":  { "model": "cclogistics:block/freight_depot/freight_depot", "y": 270 },
+    "facing=east":  { "model": "cclogistics:block/freight_depot/freight_depot", "y": 90 }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " S ",
+    " R ",
+    " I "
+  ],
+  "key": {
+    "S": {
+      "item": "structurize:sceptergold"
+    },
+    "R": {
+      "item": "create:redstone_link"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    }
+  },
+  "result": {
+    "id": "cclogistics:logistics_linker",
+    "count": 1
+  }
+}

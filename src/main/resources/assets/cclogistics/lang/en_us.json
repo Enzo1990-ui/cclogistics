@@ -1,0 +1,16 @@
+{
+  "itemGroup.cclogistics_tab": "Create: Colony Logistics",
+
+  "block.cclogistics.freight_depot": "Freight Depot",
+  "block.cclogistics.foremens_hut": "Foremen's Hut",
+  "block.cclogistics.logistics_controller": "Logistics Controller",
+
+  "item.cclogistics.logistics_linker": "Logistics Linker",
+
+  "com.cclogistics.building.freight_depot": "Freight Depot",
+  "com.cclogistics.building.foremens_hut": "Foremen's Hut",
+
+  "com.cclogistics.job.logistics_coordinator": "Logistics Coordinator",
+  "com.cclogistics.job.packer_agent": "Packer Agent",
+  "com.cclogistics.job.freight_inspector": "Freight Inspector"
+}

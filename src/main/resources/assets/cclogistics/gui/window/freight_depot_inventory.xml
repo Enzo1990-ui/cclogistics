@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<window xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        size="256 256"
+        xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/ldtteam/BlockUI/version/main/src/main/resources/assets/blockui/gui/block_ui.xsd">
+    
+    <image id="background" pos="0 0" size="256 256" 
+           source="minecraft:textures/gui/container/shulker_box.png" />
+    <group id="depot_inventory" pos="7 17" size="162 54" />
+    <group id="player_main" pos="7 83" size="162 54" />
+    <group id="player_hotbar" pos="7 141" size="162 18" />
+</window>

@@ -1,0 +1,5 @@
+{
+  "variants": {
+    "": { "model": "cclogistics:block/logistics_controller/logistics_controller" }
+  }
+}

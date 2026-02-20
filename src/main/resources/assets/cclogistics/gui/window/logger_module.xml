@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<window xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/ldtteam/BlockUI/version/main/src/main/resources/assets/blockui/gui/block_ui.xsd"
+        size="190 244"
+        lightbox="true">
+
+    <layout source="minecolonies:gui/layouthuts/layouthutpageactions.xml"/>
+    
+    <image source="minecolonies:textures/gui/builderhut/builder_paper.png" size="190 244" pos="0 0"/>
+
+    <text id="title" size="190 12" pos="50 15" color="black" textalign="CENTER" label="Logistics Logger"/>
+
+    <button id="allBtn" label="All" size="40 16" pos="20 30"/>
+    <button id="inBtn" label="Import" size="40 16" pos="65 30"/>
+    <button id="outBtn" label="Export" size="40 16" pos="110 30"/>
+
+    <list id="logList" size="180 100" pos="10 50">
+        <box size="100% 12" linewidth="1">
+            <text id="logText" size="100% 12" pos="2 0" color="black"/>
+        </box>
+    </list>
+</window>

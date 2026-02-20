@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<window>
+    <pane size="200 150" pos="0 0">
+        <image source="minecolonies:textures/gui/builderhut/builder_paper.png" size="200 150" pos="0 0"/>
+
+        <text value="Freight Logistics" size="200 12" pos="0 5" color="black" textalign="MIDDLE"/>
+
+        <text value="Colony Name:" size="180 10" pos="10 25" color="dark_gray"/>
+        <textfield id="colonyNameInput" size="180 16" pos="10 38" maxlength="32"/>
+
+        <text value="Target City:" size="180 10" pos="10 65" color="dark_gray"/>
+        <textfield id="cityTargetInput" size="180 16" pos="10 78" maxlength="32"/>
+
+        <button id="saveBtn" label="Save Settings" size="80 20" pos="60 100" source="minecolonies:textures/gui/builderhut/builder_button_medium.png"/>
+    </pane>
+</window>

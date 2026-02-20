@@ -1,0 +1,26 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "PSP",
+    "CAC",
+    "PPP"
+  ],
+  "key": {
+    "S": {
+      "item": "structurize:sceptergold"
+    },
+    "P": {
+      "tag": "minecraft:planks"
+    },
+    "C": {
+      "item": "minecraft:chest"
+    },
+    "A": {
+      "item": "create:andesite_casing"
+    }
+  },
+  "result": {
+    "id": "cclogistics:freight_depot",
+    "count": 1
+  }
+}

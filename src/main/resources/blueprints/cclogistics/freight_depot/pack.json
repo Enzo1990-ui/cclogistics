@@ -1,0 +1,15 @@
+{
+    "icon": "icon.png",
+    "name": "Create Colony Logistics",
+    "authors": [
+        "OGTEnzoHD"
+    ],
+    "desc": "A specialized style for Create Mod logistics integration..",
+    "mods": [
+        "structurize",
+        "minecolonies",
+        "create"
+    ],
+    "version": "1",
+    "pack-format": "1"
+}

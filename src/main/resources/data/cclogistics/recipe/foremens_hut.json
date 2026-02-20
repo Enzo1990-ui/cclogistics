@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "WSW",
+    "B B",
+    "WWW"
+  ],
+  "key": {
+    "S": {
+      "item": "structurize:sceptergold"
+    },
+    "W": {
+      "tag": "minecraft:logs"
+    },
+    "B": {
+      "item": "minecraft:bookshelf"
+    }
+  },
+  "result": {
+    "id": "cclogistics:foremens_hut",
+    "count": 1
+  }
+}

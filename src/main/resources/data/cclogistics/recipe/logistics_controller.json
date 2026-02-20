@@ -1,0 +1,29 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "RSR",
+    "ECE",
+    "RBR"
+  ],
+  "key": {
+    "S": {
+      "item": "structurize:sceptergold"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "E": {
+      "item": "create:electron_tube"
+    },
+    "C": {
+      "item": "create:brass_casing"
+    },
+    "B": {
+      "item": "create:precision_mechanism"
+    }
+  },
+  "result": {
+    "id": "cclogistics:logistics_controller",
+    "count": 1
+  }
+}

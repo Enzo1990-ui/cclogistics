@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "cclogistics:block/foremen_hut/foremen_hut" },
+    "facing=east":  { "model": "cclogistics:block/foremen_hut/foremen_hut", "y": 90 },
+    "facing=south": { "model": "cclogistics:block/foremen_hut/foremen_hut", "y": 180 },
+    "facing=west":  { "model": "cclogistics:block/foremen_hut/foremen_hut", "y": 270 }
+  }
+}
