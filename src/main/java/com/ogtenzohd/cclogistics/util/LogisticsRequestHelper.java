@@ -6,6 +6,7 @@ import com.minecolonies.api.colony.requestsystem.requestable.Stack;
 import com.simibubi.create.content.logistics.BigItemStack;
 import com.simibubi.create.content.logistics.stockTicker.StockTickerBlockEntity;
 import net.minecraft.world.item.ItemStack;
+import com.ogtenzohd.cclogistics.config.CCLConfig;
 import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
@@ -79,7 +80,7 @@ public class LogisticsRequestHelper {
 
         List<BigItemStack> networkInventory = LogisticsBridge.getNetworkInventory(ticker);
         
-        LOGGER.info("[CCLogistics] Processing " + allRequests.size() + " active requests...");
+        if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[CCLogistics] Processing " + allRequests.size() + " active requests...");
 
         int limit = 0;
         for (IRequest<?> request : allRequests) {
@@ -118,7 +119,7 @@ public class LogisticsRequestHelper {
                 }
 
             } catch (Exception e) {
-                LOGGER.error("[CCLogistics] Error processing request", e);
+                if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.error("[CCLogistics] Error processing request", e);
             }
         }
     }
