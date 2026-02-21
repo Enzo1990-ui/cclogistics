@@ -1,13 +1,12 @@
 modLoader="javafml"
 loaderVersion="[1,)"
-license="All Rights Reserved"
-issueTrackerURL="https://github.com/YourRepo/Issues"
+license="MIT"
+issueTrackerURL="https://github.com/Enzo1990-ui/cclogistics/issues"
 
 [[mods]]
 modId="cclogistics"
 version="${file.jarVersion}"
 displayName="Create Colony Logistics"
-displayURL="https://yourwebsite.com"
 logoFile="logo.png"
 authors="OGTenzoHD"
 description='''
@@ -25,22 +24,15 @@ config="cclogistics.mixins.json"
     side="BOTH"
 
 [[dependencies.cclogistics]]
-    modId="minecraft"
-    type="required"
-    versionRange="[1.21.1,)"
-    ordering="NONE"
-    side="BOTH"
-
-[[dependencies.cclogistics]]
     modId="minecolonies"
     type="required"
     versionRange="[1.0,)"
-    ordering="NONE"   # FIX: Change AFTER to NONE to prevent advancement crash
+    ordering="NONE"
     side="BOTH"
 
 [[dependencies.cclogistics]]
     modId="create"
     type="required"
     versionRange="[0.5.1,)"
-    ordering="NONE"   # FIX: Change AFTER to NONE to prevent advancement crash
+    ordering="NONE"
     side="BOTH"

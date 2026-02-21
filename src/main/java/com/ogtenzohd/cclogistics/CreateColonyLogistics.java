@@ -61,10 +61,6 @@ public class CreateColonyLogistics {
             } else {
                 LOGGER.warn("[CCLogistics] Could not find base 'deliveryman' sounds!");
             }
-			
-			Item goldScepter = BuiltInRegistries.ITEM.get(ResourceLocation.fromNamespaceAndPath("structurize", "sceptergold"));
-			if (goldScepter != null && goldScepter != net.minecraft.world.item.Items.AIR) {
-			}
         });
         
         LOGGER.info("[CCLogistics] Common Setup Complete.");
