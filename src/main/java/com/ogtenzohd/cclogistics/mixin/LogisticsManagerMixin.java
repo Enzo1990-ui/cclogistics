@@ -5,7 +5,9 @@ import java.util.Collection;
 import java.util.Map;
 
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Overwrite;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.google.common.collect.Multimap;
 import com.simibubi.create.content.logistics.packager.PackagerBlockEntity;
@@ -15,8 +17,8 @@ import com.simibubi.create.content.logistics.packagerLink.LogisticsManager;
 @Mixin(value = LogisticsManager.class, remap = false)
 public abstract class LogisticsManagerMixin {
 
-    @Overwrite
-    public static void performPackageRequests(Multimap<PackagerBlockEntity, PackagingRequest> requests) {
+    @Inject(method = "performPackageRequests", at = @At("HEAD"), cancellable = true)
+    private static void performPackageRequests(Multimap<PackagerBlockEntity, PackagingRequest> requests, CallbackInfo ci) {
         Map<PackagerBlockEntity, Collection<PackagingRequest>> asMap = requests.asMap();
 
         for (Map.Entry<PackagerBlockEntity, Collection<PackagingRequest>> entry : asMap.entrySet()) {
@@ -35,5 +37,7 @@ public abstract class LogisticsManagerMixin {
             packager.triggerStockCheck();
             packager.notifyUpdate();
         }
+        
+        ci.cancel(); 
     }
 }

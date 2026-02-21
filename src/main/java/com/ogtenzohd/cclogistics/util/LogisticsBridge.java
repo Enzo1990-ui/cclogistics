@@ -1,11 +1,12 @@
 package com.ogtenzohd.cclogistics.util;
 
 import com.ogtenzohd.cclogistics.accessor.IAutomatedTicker;
+import com.ogtenzohd.cclogistics.compat.CFLCompat;
 import com.simibubi.create.content.logistics.BigItemStack;
 import com.simibubi.create.content.logistics.packager.PackagerBlock;
 import com.simibubi.create.content.logistics.packager.PackagerBlockEntity;
 import com.simibubi.create.content.logistics.packagerLink.LogisticallyLinkedBehaviour;
-import com.simibubi.create.content.logistics.packagerLink.PackagerLinkBlockEntity; // Import the Link BE
+import com.simibubi.create.content.logistics.packagerLink.PackagerLinkBlockEntity;
 import com.simibubi.create.content.logistics.stockTicker.PackageOrder;
 import com.simibubi.create.content.logistics.stockTicker.PackageOrderWithCrafts;
 import com.simibubi.create.content.logistics.stockTicker.StockTickerBlockEntity;
@@ -15,9 +16,10 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.neoforged.neoforge.capabilities.Capabilities;
-import net.neoforged.neoforge.items.IItemHandler; 
+import net.neoforged.neoforge.items.IItemHandler;
 import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
+import com.ogtenzohd.cclogistics.config.CCLConfig;
 
 import java.util.*;
 
@@ -32,14 +34,14 @@ public class LogisticsBridge {
         try {
             LogisticallyLinkedBehaviour link = ticker.getBehaviour(LogisticallyLinkedBehaviour.TYPE);
             if (link == null || link.freqId == null) {
-                LOGGER.warn("[Bridge] StockTicker has no frequency ID!");
+                if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.warn("[Bridge] StockTicker has no frequency ID!");
                 return new BigItemStack(wanted, 0);
             }
 
             Collection<LogisticallyLinkedBehaviour> networkLinks = LogisticallyLinkedBehaviour.getAllPresent(link.freqId, false);
             
             if (networkLinks == null || networkLinks.isEmpty()) {
-                LOGGER.warn("[Bridge] Network has no links for freqId: " + link.freqId);
+                if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.warn("[Bridge] Network has no links for freqId: " + link.freqId);
                 return new BigItemStack(wanted, 0);
             }
 
@@ -67,7 +69,7 @@ public class LogisticsBridge {
             return new BigItemStack(wanted, (int) totalCount);
 
         } catch (Exception e) {
-            LOGGER.error("[Bridge] Crash in checkStock", e);
+            if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.error("[Bridge] Crash in checkStock", e);
             return new BigItemStack(wanted, 0);
         }
     }
@@ -177,30 +179,39 @@ public class LogisticsBridge {
     }
 
     public static boolean sendPackage(StockTickerBlockEntity ticker, Object token, String address, PackageOrder dummyOrder) {
-        LOGGER.info("[Bridge] sendPackage invoked for Address: " + address);
+        if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[Bridge] sendPackage invoked for Address: " + address);
         
         if (!(token instanceof ItemStack stack) || stack.isEmpty()) {
-            LOGGER.warn("[Bridge] Token is invalid or empty ItemStack");
+            if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.warn("[Bridge] Token is invalid or empty");
             return false;
         }
 
-        LOGGER.info("[Bridge] Item: " + stack.getHoverName().getString() + " x" + stack.getCount());
-
+       CFLCompat.init();
+		if (CFLCompat.cflLoaded) {
+			// If Create Fabric Logistics is loaded, their custom network handles routing better.
+			// Bypass Create's native mixin to prevent double-sending.
+			if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[Bridge] CFL Detected! Bypassing Native LogisticsManager...");
+            
+            LogisticallyLinkedBehaviour link = ticker.getBehaviour(LogisticallyLinkedBehaviour.TYPE);
+            if (link != null && link.freqId != null) {
+                 return CFLCompat.sendCFLPackage(link.freqId, stack, address);
+            }
+            if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.warn("[Bridge] StockTicker has no Frequency ID to broadcast on!");
+            return false;
+        }
+		
+        if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[Bridge] Native Create Detected. Forwarding to StockTicker Mixin...");
         ItemStack typeStack = stack.copy();
         typeStack.setCount(1);
-        
         BigItemStack bigStack = new BigItemStack(typeStack, stack.getCount());
-
         PackageOrder realOrder = new PackageOrder(Collections.singletonList(bigStack));
-
         PackageOrderWithCrafts wrapped = new PackageOrderWithCrafts(realOrder, Collections.emptyList());
 
         try {
-            LOGGER.info("[Bridge] Forwarding to StockTicker Mixin...");
             send(ticker, wrapped, address);
             return true;
         } catch (Exception e) {
-            LOGGER.error("[Bridge] Send failed", e);
+            if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.error("[Bridge] Send failed", e);
             return false;
         }
     }
@@ -210,10 +221,10 @@ public class LogisticsBridge {
             if (order instanceof PackageOrderWithCrafts packageOrder) {
                 automatedTicker.cclogistics$automatedRequest(packageOrder, address);
             } else {
-                 LOGGER.warn("[Bridge] Order is not PackageOrderWithCrafts! Type: " + order.getClass().getName());
+                 if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.warn("[Bridge] Order is not PackageOrderWithCrafts! Type: " + order.getClass().getName());
             }
         } else {
-             LOGGER.warn("[Bridge] Ticker does not implement IAutomatedTicker mixin!");
+             if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.warn("[Bridge] Ticker does not implement IAutomatedTicker mixin!");
         }
     }
 }
