@@ -5,8 +5,12 @@ import com.minecolonies.core.colony.buildings.AbstractBuilding;
 import com.minecolonies.core.tileentities.TileEntityColonyBuilding;
 import com.minecolonies.api.tileentities.AbstractTileEntityColonyBuilding;
 import com.ogtenzohd.cclogistics.blocks.custom.freight_depot.FreightDepotBlockEntity;
+import com.simibubi.create.content.logistics.vault.ItemVaultBlockEntity;
 import net.minecraft.core.BlockPos;
+import com.ogtenzohd.cclogistics.config.CCLConfig;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
 import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
@@ -32,24 +36,55 @@ public class FreightDepotBuilding extends AbstractBuilding {
     }
 
     @Override
-	public String getBlueprintPath() {
+    public String getBlueprintPath() {
         int level = getBuildingLevel() == 0 ? 1 : getBuildingLevel();
         return getSchematicName() + "/" + getSchematicName() + level + ".blueprint";
-	}
-	
-	@Override
-	public List<BlockPos> getContainers() {
-		List<BlockPos> containers = new ArrayList<>(super.getContainers());
-		containers.add(getLocation().getInDimensionLocation());
-		return containers;
-	}
+    }
+    
+    @Override
+    public List<BlockPos> getContainers() {
+        List<BlockPos> containers = new ArrayList<>(super.getContainers());
+        containers.add(getLocation().getInDimensionLocation());
+        return containers;
+    }
+
+    @Override
+    public void onUpgradeComplete(int newLevel) {
+        super.onUpgradeComplete(newLevel);
+        if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[CCLogistics] Freight Depot successfully built/upgraded to level {}!", newLevel);
+        updateStructureData();
+        forceVaultConnections();
+    }
+
+    private void forceVaultConnections() {
+        if (getColony().getWorld() == null) return;
+        Level level = getColony().getWorld();
+
+        var corners = this.getCorners();
+        if (corners == null) return;
+
+        BlockPos cornerA = corners.getA();
+        BlockPos cornerB = corners.getB();
+
+        if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[CCLogistics] Scanning Freight Depot for Item Vaults to relink...");
+
+        for (BlockPos pos : BlockPos.betweenClosed(cornerA, cornerB)) {
+            BlockEntity be = level.getBlockEntity(pos);
+            
+            if (be instanceof ItemVaultBlockEntity) {
+                BlockState state = level.getBlockState(pos);
+                level.sendBlockUpdated(pos, state, state, 3);
+                level.updateNeighborsAt(pos, state.getBlock());
+            }
+        }
+    }
 
     public void updateStructureData() {
         if (getColony().getWorld() == null) return;
         try {
             resolveStructureTags();
         } catch (Exception e) {
-            LOGGER.error("[FreightDepotBuilding] Error resolving tags", e);
+            if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.error("[FreightDepotBuilding] Error resolving tags", e);
         }
     }
 
