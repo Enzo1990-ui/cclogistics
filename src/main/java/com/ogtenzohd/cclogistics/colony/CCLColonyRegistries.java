@@ -12,6 +12,7 @@ import com.ogtenzohd.cclogistics.colony.job.FreightInspectorJob;
 import com.ogtenzohd.cclogistics.colony.job.LogisticsCoordinatorJob;
 import com.ogtenzohd.cclogistics.colony.job.PackerAgentJob;
 import com.ogtenzohd.cclogistics.registration.CCLRegistration;
+import com.ogtenzohd.cclogistics.config.CCLConfig;
 import com.minecolonies.core.colony.buildings.modules.WorkerBuildingModule;
 import com.minecolonies.core.colony.buildings.modules.BuildingModules;
 import com.minecolonies.core.colony.buildings.moduleviews.WorkerBuildingModuleView;
@@ -62,7 +63,14 @@ public class CCLColonyRegistries {
         new BuildingEntry.ModuleProducer<>(
             "packer_agent_work", 
             () -> new WorkerBuildingModule(PACKER_AGENT_JOB_ENTRY, Skill.Stamina, Skill.Agility, false, 
-                b -> b.getBuildingLevel() == 1 ? 2 : b.getBuildingLevel() == 2 ? 3 : b.getBuildingLevel() == 3 ? 5 : b.getBuildingLevel() == 4 ? 7 : 10), 
+                b -> switch (b.getBuildingLevel()) {
+                    case 1 -> CCLConfig.INSTANCE.packersLevel1.get();
+                    case 2 -> CCLConfig.INSTANCE.packersLevel2.get();
+                    case 3 -> CCLConfig.INSTANCE.packersLevel3.get();
+                    case 4 -> CCLConfig.INSTANCE.packersLevel4.get();
+                    case 5 -> CCLConfig.INSTANCE.packersLevel5.get();
+                    default -> CCLConfig.INSTANCE.packersLevel1.get(); // Fallback
+                }), 
             () -> WorkerBuildingModuleView::new
         );
 
