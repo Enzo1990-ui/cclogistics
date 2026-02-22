@@ -5,17 +5,17 @@ import com.minecolonies.core.colony.buildings.AbstractBuilding;
 import com.minecolonies.core.tileentities.TileEntityColonyBuilding;
 import com.minecolonies.api.tileentities.AbstractTileEntityColonyBuilding;
 import com.ogtenzohd.cclogistics.blocks.custom.freight_depot.FreightDepotBlockEntity;
-import com.simibubi.create.content.logistics.vault.ItemVaultBlockEntity;
 import net.minecraft.core.BlockPos;
 import com.ogtenzohd.cclogistics.config.CCLConfig;
-import com.minecolonies.core.colony.buildings.modules.WorkerBuildingModule;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.Blocks;
 import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -26,7 +26,7 @@ public class FreightDepotBuilding extends AbstractBuilding {
 
     public BlockPos inputChestPos = null;
     public BlockPos outputChestPos = null;
-	
+    
 
     public FreightDepotBuilding(IColony colony, BlockPos pos) {
         super(colony, pos);
@@ -52,7 +52,7 @@ public class FreightDepotBuilding extends AbstractBuilding {
         forceVaultConnections();
     }
 
-    private void forceVaultConnections() {
+    private void forceVaultConnections() { //** final fix for vault multiblock
         if (getColony().getWorld() == null) return;
         Level level = getColony().getWorld();
 
@@ -64,15 +64,29 @@ public class FreightDepotBuilding extends AbstractBuilding {
 
         if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[CCLogistics] Scanning Freight Depot for Item Vaults to relink...");
 
-        for (BlockPos pos : BlockPos.betweenClosed(cornerA, cornerB)) {
-            BlockEntity be = level.getBlockEntity(pos);
+        Map<BlockPos, BlockState> vaultsToReplace = new HashMap<>();
+
+        for (BlockPos mutablePos : BlockPos.betweenClosed(cornerA, cornerB)) {
+            BlockPos pos = mutablePos.immutable(); 
+            BlockState state = level.getBlockState(pos);
             
-            if (be instanceof ItemVaultBlockEntity) {
-                BlockState state = level.getBlockState(pos);
-                level.sendBlockUpdated(pos, state, state, 3);
-                level.updateNeighborsAt(pos, state.getBlock());
+            if (state.getBlock().toString().contains("item_vault")) {
+                vaultsToReplace.put(pos, state);
             }
         }
+
+        if (vaultsToReplace.isEmpty()) return;
+
+        for (BlockPos pos : vaultsToReplace.keySet()) {
+            level.removeBlockEntity(pos);
+            level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3); 
+        }
+
+        for (Map.Entry<BlockPos, BlockState> entry : vaultsToReplace.entrySet()) {
+            level.setBlock(entry.getKey(), entry.getValue(), 3);
+        }
+        
+        if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[CCLogistics] Successfully wiped and reformed " + vaultsToReplace.size() + " Item Vault blocks!");
     }
 
     public void updateStructureData() {
