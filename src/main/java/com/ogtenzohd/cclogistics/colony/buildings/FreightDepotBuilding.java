@@ -8,6 +8,7 @@ import com.ogtenzohd.cclogistics.blocks.custom.freight_depot.FreightDepotBlockEn
 import com.simibubi.create.content.logistics.vault.ItemVaultBlockEntity;
 import net.minecraft.core.BlockPos;
 import com.ogtenzohd.cclogistics.config.CCLConfig;
+import com.minecolonies.core.colony.buildings.modules.WorkerBuildingModule;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -25,6 +26,7 @@ public class FreightDepotBuilding extends AbstractBuilding {
 
     public BlockPos inputChestPos = null;
     public BlockPos outputChestPos = null;
+	
 
     public FreightDepotBuilding(IColony colony, BlockPos pos) {
         super(colony, pos);
@@ -33,12 +35,6 @@ public class FreightDepotBuilding extends AbstractBuilding {
     @Override
     public String getSchematicName() {
         return "freight_depot";
-    }
-
-    @Override
-    public String getBlueprintPath() {
-        int level = getBuildingLevel() == 0 ? 1 : getBuildingLevel();
-        return getSchematicName() + "/" + getSchematicName() + level + ".blueprint";
     }
     
     @Override

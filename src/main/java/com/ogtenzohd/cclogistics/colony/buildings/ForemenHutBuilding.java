@@ -3,6 +3,7 @@ package com.ogtenzohd.cclogistics.colony.buildings;
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.core.colony.buildings.AbstractBuilding;
 import com.ogtenzohd.cclogistics.colony.buildings.modules.LoggerModule;
+import com.minecolonies.core.colony.buildings.modules.WorkerBuildingModule;
 import net.minecraft.core.BlockPos;
 
 public class ForemenHutBuilding extends AbstractBuilding {
@@ -10,7 +11,9 @@ public class ForemenHutBuilding extends AbstractBuilding {
     public ForemenHutBuilding(IColony colony, BlockPos pos) {
         super(colony, pos);
     }
-
+	
+	
+	
     @Override
     public String getSchematicName() {
         return "foremens_hut";
