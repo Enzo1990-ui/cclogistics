@@ -5,6 +5,8 @@ import com.minecolonies.api.colony.requestsystem.request.IRequest;
 import com.minecolonies.api.colony.requestsystem.requestable.Stack;
 import com.simibubi.create.content.logistics.BigItemStack;
 import com.simibubi.create.content.logistics.stockTicker.StockTickerBlockEntity;
+import com.minecolonies.api.colony.IColonyManager;
+import com.minecolonies.api.crafting.IRecipeStorage;
 import net.minecraft.world.item.ItemStack;
 import com.ogtenzohd.cclogistics.config.CCLConfig;
 import org.slf4j.Logger;
@@ -106,6 +108,17 @@ public class LogisticsRequestHelper {
 
                 if (itemToSend.isEmpty()) continue;
 
+                // --- NEW CRAFTING CHECK ---
+                // If the colony knows how to craft this item, skip it!
+                // This forces Minecolonies to generate requests for the base materials instead.
+                if (canColonyCraft(colony, itemToSend)) {
+                    if (CCLConfig.INSTANCE.debugMode.get()) {
+                        LOGGER.info("[CCLogistics] Skipped request for " + itemToSend.getHoverName().getString() + " because the colony knows how to craft it.");
+                    }
+                    continue; 
+                }
+                // --------------------------
+
                 if (hasStock(networkInventory, itemToSend)) {
                     if (LogisticsBridge.sendPackage(ticker, itemToSend, targetAddress, null)) {
                         String msg = "Received " + itemToSend.getHoverName().getString();
@@ -190,6 +203,36 @@ public class LogisticsRequestHelper {
         for (BigItemStack bis : networkInv) {
             if (ItemStack.isSameItemSameComponents(bis.stack, needed)) {
                 return bis.count >= needed.getCount();
+            }
+        }
+        return false;
+    }
+	
+	private static boolean canColonyCraft(IColony colony, ItemStack stack) {
+        if (stack.isEmpty()) return false;
+        
+        try {
+            var recipes = IColonyManager.getInstance().getRecipeManager().getRecipes();
+            
+            for (Object storageObj : recipes.values()) {
+                if (storageObj instanceof IRecipeStorage storage) {
+                    
+                    if (storage.getPrimaryOutput() != null && storage.getPrimaryOutput().getItem() == stack.getItem()) {
+                        return true;
+                    }
+                    
+                    if (storage.getAlternateOutputs() != null) {
+                        for (ItemStack alt : storage.getAlternateOutputs()) {
+                            if (alt != null && alt.getItem() == stack.getItem()) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            if (CCLConfig.INSTANCE.debugMode.get()) {
+                LOGGER.warn("[CCLogistics] Could not check recipe manager for " + stack.getHoverName().getString());
             }
         }
         return false;
