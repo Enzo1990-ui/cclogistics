@@ -1,4 +1,4 @@
-package com.ogtenzohd.cclogistics.colony.behaviour;
+package com.ogtenzohd.cclogistics.colony;
 
 import com.ogtenzohd.cclogistics.blocks.custom.freight_depot.FreightDepotBlockEntity;
 import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType;
