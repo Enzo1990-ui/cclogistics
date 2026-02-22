@@ -10,8 +10,16 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.StringTag;
+import org.slf4j.Logger;
+import com.mojang.logging.LogUtils;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.core.registries.BuiltInRegistries;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +33,8 @@ public class FreightInspectorAI extends AbstractEntityAIBasic<FreightInspectorJo
         TO_HUT,
         AT_HUT
     }
+	
+	private static final Logger LOGGER = LogUtils.getLogger();
 
     private State state = State.IDLE;
     private int delay = 0;
@@ -43,12 +53,46 @@ public class FreightInspectorAI extends AbstractEntityAIBasic<FreightInspectorJo
 
     public void tick() {
         if (delay > 0) {
+            // If they are supposed to be inspecting, but get recalled > 5 blocks away, reset them!
+            if (currentTarget != null && (state == State.AT_DEPOT || state == State.AT_HUT)) {
+                boolean isNear = job.getCitizen().getEntity().map(e -> e.blockPosition().closerThan(currentTarget, 5.0)).orElse(false);
+                if (!isNear) {
+                    delay = 0;
+                    state = State.IDLE;
+                    setHoldingClipboard(false);
+                    return;
+                }
+            }
+            // ---------------------------
+
             delay--;
+            
+            // -- ANIMATION SEQUENCES --
+            
+            // 1. At Depot: Play scribbling sound every 20 ticks
+            if (state == State.AT_DEPOT && delay % 20 == 0) {
+                playScribbleSound();
+            }
+            
+            // 2. At Hut: Paging sequence (Total delay starts at 150)
+            if (state == State.AT_HUT) {
+                // Put away and flip page (at 120, 70, and 20 ticks remaining)
+                if (delay == 120 || delay == 70 || delay == 20) {
+                    setHoldingClipboard(false);
+                    playPageFlipSound();
+                } 
+                // Pull clipboard back out to read (at 100 and 50 ticks remaining)
+                else if (delay == 100 || delay == 50) {
+                    setHoldingClipboard(true);
+                }
+            }
+            
             return;
         }
 
         switch (state) {
             case IDLE:
+                setHoldingClipboard(false); // Ensure hands are empty
                 state = State.TO_DEPOT;
                 break;
 
@@ -63,6 +107,7 @@ public class FreightInspectorAI extends AbstractEntityAIBasic<FreightInspectorJo
                     if (isAt(currentTarget)) {
                         state = State.AT_DEPOT;
                         delay = 60; 
+                        setHoldingClipboard(true); // Pull out clipboard to inspect depot
                     }
                 } else {
                     delay = 200;
@@ -79,6 +124,8 @@ public class FreightInspectorAI extends AbstractEntityAIBasic<FreightInspectorJo
                         bufferedOutgoing.addAll(out);
                     }
                 }
+                
+                setHoldingClipboard(false); // Put clipboard away to walk
                 state = State.TO_HUT;
                 break;
 
@@ -89,7 +136,8 @@ public class FreightInspectorAI extends AbstractEntityAIBasic<FreightInspectorJo
                     moveTo(currentTarget);
                     if (isAt(currentTarget)) {
                         state = State.AT_HUT;
-                        delay = 60;
+                        delay = 150; // Set to 150 to allow for 3 page-flip cycles
+                        setHoldingClipboard(true); // Pull out clipboard to log data
                     }
                 }
                 break;
@@ -111,10 +159,56 @@ public class FreightInspectorAI extends AbstractEntityAIBasic<FreightInspectorJo
                     bufferedIncoming.clear();
                     bufferedOutgoing.clear();
                 }
+                
+                setHoldingClipboard(false); // Finished inspecting, put it away
                 state = State.IDLE;
                 delay = 600; 
                 break;
         }
+    }
+    
+    /**
+     * Attempts to find Minecolonies' clipboard item, falling back to a vanilla book.
+     */
+    private ItemStack getClipboard() {
+        net.minecraft.world.item.Item item = BuiltInRegistries.ITEM.get(ResourceLocation.tryParse("minecolonies:clipboard"));
+        if (item == Items.AIR) {
+            return new ItemStack(Items.BOOK);
+        }
+        return new ItemStack(item);
+    }
+    
+    /**
+     * Makes the entity visually hold or put away the clipboard.
+     */
+    private void setHoldingClipboard(boolean holding) {
+        job.getCitizen().getEntity().ifPresent(entity -> {
+            if (holding) {
+                entity.setItemInHand(InteractionHand.MAIN_HAND, getClipboard());
+            } else {
+                entity.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+            }
+        });
+    }
+
+    /**
+     * Plays a cartographer scribbling sound.
+     */
+    private void playScribbleSound() {
+        job.getCitizen().getEntity().ifPresent(entity -> {
+            float pitch = 1.0F + (entity.level().random.nextFloat() - 0.5F) * 0.2F;
+            entity.playSound(SoundEvents.VILLAGER_WORK_CARTOGRAPHER, 0.5F, pitch);
+        });
+    }
+
+    /**
+     * Plays a page-flipping sound.
+     */
+    private void playPageFlipSound() {
+        job.getCitizen().getEntity().ifPresent(entity -> {
+            float pitch = 0.9F + (entity.level().random.nextFloat() * 0.2F);
+            entity.playSound(SoundEvents.BOOK_PAGE_TURN, 0.8F, pitch);
+        });
     }
     
     public void write(CompoundTag tag, HolderLookup.Provider provider) {
@@ -156,7 +250,7 @@ public class FreightInspectorAI extends AbstractEntityAIBasic<FreightInspectorJo
             for (int i = 0; i < list.size(); i++) bufferedOutgoing.add(list.getString(i));
         }
     }
-    
+	
     private void moveTo(BlockPos pos) {
         job.getCitizen().getEntity().ifPresent(entity -> {
             entity.getNavigation().moveTo(pos.getX(), pos.getY(), pos.getZ(), 1.0);

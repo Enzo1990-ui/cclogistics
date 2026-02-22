@@ -61,7 +61,31 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
     }
 
     public void tick() {
+        // --- VISUAL CHECK ---
+        // If they have a package in their memory but their hands are empty (e.g., they just woke up), put it back!
+        if (!holdingItems.isEmpty()) {
+            job.getCitizen().getEntity().ifPresent(entity -> {
+                if (entity.getItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND).isEmpty()) {
+                    entity.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, holdingItems.get(0).copy());
+                }
+            });
+        }
+        // ------------------------
+
         if (delay > 0) {
+            // --- RECALL FAILSAFE ---
+            // If they are supposed to be unpacking/packing, but get recalled > 5 blocks away, reset them!
+            if (currentTarget != null && (state == State.AT_DEPOT_IMPORT || state == State.AT_WAREHOUSE || state == State.AT_DEPOT_EXCESS || state == State.AT_DEPOT_EXPORT)) {
+                boolean isNear = job.getCitizen().getEntity().map(e -> e.blockPosition().closerThan(currentTarget, 5.0)).orElse(false);
+                if (!isNear) {
+                    delay = 0;
+                    state = State.IDLE;
+                    // Note: We do NOT clear their hands here, so they remember their package!
+                    return;
+                }
+            }
+            // ---------------------------
+
             delay--;
             return;
         }

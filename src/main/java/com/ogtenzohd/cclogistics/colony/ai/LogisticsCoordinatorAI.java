@@ -15,6 +15,11 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.core.registries.BuiltInRegistries;
 import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
@@ -50,15 +55,36 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
 
     public void tick() {
         if (delay > 0) {
+            // --- NEW RECALL FAILSAFE ---
+            // If they are supposed to be inspecting, but get recalled > 5 blocks away, reset them!
+            if (currentTarget != null && (state == State.AT_TOWNHALL || state == State.AT_WAREHOUSE || state == State.AT_DEPOT)) {
+                boolean isNear = job.getCitizen().getEntity().map(e -> e.blockPosition().closerThan(currentTarget, 5.0)).orElse(false);
+                if (!isNear) {
+                    delay = 0;
+                    state = State.IDLE;
+                    setHoldingClipboard(false);
+                    return;
+                }
+            }
+            // ---------------------------
+
             delay--;
+            
+            // If they are actively inspecting a building, play a scribbling sound every ~1.25 seconds
+            if (delay % 25 == 0 && (state == State.AT_TOWNHALL || state == State.AT_WAREHOUSE || state == State.AT_DEPOT)) {
+                playScribbleSound();
+            }
+            
             return;
         }
 
         switch (state) {
             case IDLE:
                 if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[LogisticsAI] Starting cycle, moving to TOWNHALL");
+                setHoldingClipboard(false); //ensure empty hands
                 state = State.TO_TOWNHALL;
                 break;
+                
             case TO_TOWNHALL:
                 com.minecolonies.api.colony.buildings.IBuilding townHall = job.getColony().getServerBuildingManager().getBuildings().values().stream()
                     .filter(b -> b.getSchematicName().contains("townhall"))
@@ -71,6 +97,7 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                          if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[LogisticsAI] Arrived at TOWNHALL");
                          state = State.AT_TOWNHALL;
                          delay = 100; 
+                         setHoldingClipboard(true); // Pull out the clipboard!
                     }
                 } else {
                     if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.warn("[LogisticsAI] No TownHall found! Skipping to WAREHOUSE");
@@ -94,6 +121,8 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                 } else {
                      LOGGER.error("[LogisticsAI] Worker is not assigned to a Freight Depot!");
                 }
+                
+                setHoldingClipboard(false); // Put the clipboard away
                 state = State.TO_WAREHOUSE;
                 break;
 
@@ -109,6 +138,7 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                         if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[LogisticsAI] Arrived at WAREHOUSE");
                         state = State.AT_WAREHOUSE;
                         delay = 100;
+                        setHoldingClipboard(true); // Pull out the clipboard!
                     }
                 } else {
                     if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.warn("[LogisticsAI] No Warehouse found! Skipping to DEPOT");
@@ -137,8 +167,8 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                         }
                     }
                     
-					int threshold = CCLConfig.INSTANCE.warehouseExcessThreshold.get();
-					
+                    int threshold = CCLConfig.INSTANCE.warehouseExcessThreshold.get();
+                    
                     if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[LogisticsAI] Scan complete. Checking for excess items (>128)...");
                     for (ItemStorage storage : allItems.keySet()) {
                         if (storage.getAmount() > threshold) {
@@ -156,6 +186,8 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                         }
                     }
                 }
+                
+                setHoldingClipboard(false); // Put the clipboard away
                 state = State.TO_DEPOT;
                 break;
 
@@ -168,16 +200,53 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                         if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[LogisticsAI] Arrived at DEPOT");
                         state = State.AT_DEPOT;
                         delay = 200;
+                        setHoldingClipboard(true); // Pull out the clipboard!
                     }
                 }
                 break;
 
             case AT_DEPOT:
                 if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[LogisticsAI] Resting at Depot...");
+                setHoldingClipboard(false); // Put the clipboard away for break time
                 state = State.IDLE;
                 delay = CCLConfig.INSTANCE.coordinatorCooldown.get();
                 break;
         }
+    }
+    
+    /**
+     * Attempts to find Minecolonies' clipboard item, falling back to a vanilla book.
+     */
+    private ItemStack getClipboard() {
+        net.minecraft.world.item.Item item = BuiltInRegistries.ITEM.get(ResourceLocation.tryParse("minecolonies:clipboard"));
+        if (item == Items.AIR) {
+            return new ItemStack(Items.BOOK);
+        }
+        return new ItemStack(item);
+    }
+    
+    /**
+     * Makes the entity visually hold or put away the clipboard.
+     */
+    private void setHoldingClipboard(boolean holding) {
+        job.getCitizen().getEntity().ifPresent(entity -> {
+            if (holding) {
+                entity.setItemInHand(InteractionHand.MAIN_HAND, getClipboard());
+            } else {
+                entity.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+            }
+        });
+    }
+
+    /**
+     * Plays a cartographer scribbling sound to simulate taking notes.
+     */
+    private void playScribbleSound() {
+        job.getCitizen().getEntity().ifPresent(entity -> {
+            // Adds slight pitch variation so the scribbling doesn't sound completely identical every time
+            float pitch = 1.0F + (entity.level().random.nextFloat() - 0.5F) * 0.2F;
+            entity.playSound(SoundEvents.VILLAGER_WORK_CARTOGRAPHER, 0.5F, pitch);
+        });
     }
     
     public void write(CompoundTag tag, HolderLookup.Provider provider) {
