@@ -3,16 +3,21 @@ package com.ogtenzohd.cclogistics.colony.buildings;
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.core.colony.buildings.AbstractBuilding;
 import com.ogtenzohd.cclogistics.colony.buildings.modules.LoggerModule;
-import com.minecolonies.core.colony.buildings.modules.WorkerBuildingModule;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.core.HolderLookup;
+import com.ogtenzohd.cclogistics.config.CCLConfig;
+import org.slf4j.Logger;
+import com.mojang.logging.LogUtils;
 
 public class ForemenHutBuilding extends AbstractBuilding {
+
+    private static final Logger LOGGER = LogUtils.getLogger();
 
     public ForemenHutBuilding(IColony colony, BlockPos pos) {
         super(colony, pos);
     }
-	
-	
+
 	
     @Override
     public String getSchematicName() {

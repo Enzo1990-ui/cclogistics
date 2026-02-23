@@ -13,6 +13,8 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.Blocks;
 import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.core.HolderLookup;
 
 import java.util.ArrayList;
 import java.util.HashMap;

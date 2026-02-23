@@ -20,17 +20,13 @@ public class FreightDepotBuildingView extends AbstractBuildingView implements IB
     @Override
     public <T extends IBuildingModuleView> T getModuleViewMatching(Class<T> clazz, Predicate<? super T> modulePredicate) {
         T result = super.getModuleViewMatching(clazz, modulePredicate);
-        
-        // Failsafe: Stop WindowHireWorker from crashing when swapping jobs directly
+        // Failsafe
         if (result == null && IAssignmentModuleView.class.isAssignableFrom(clazz)) {
             List<WorkerBuildingModuleView> workers = getModuleViews(WorkerBuildingModuleView.class);
             if (!workers.isEmpty()) {
-                // If Minecolonies gets confused and returns null, hand it our first valid worker module 
-                // so the GUI can safely fire the citizen without crashing the game!
-                return (T) workers.get(0);
+                return (T) workers.get(0); 
             }
         }
-        
         return result;
     }
 }

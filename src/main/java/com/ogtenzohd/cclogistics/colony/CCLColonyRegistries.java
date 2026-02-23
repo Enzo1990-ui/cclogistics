@@ -69,7 +69,7 @@ public class CCLColonyRegistries {
                     case 3 -> CCLConfig.INSTANCE.packersLevel3.get();
                     case 4 -> CCLConfig.INSTANCE.packersLevel4.get();
                     case 5 -> CCLConfig.INSTANCE.packersLevel5.get();
-                    default -> CCLConfig.INSTANCE.packersLevel1.get(); // Fallback
+                    default -> CCLConfig.INSTANCE.packersLevel1.get(); 
                 }), 
             () -> WorkerBuildingModuleView::new
         );

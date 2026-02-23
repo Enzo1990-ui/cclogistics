@@ -47,7 +47,7 @@ public class FreightInspectorJob extends AbstractJob<FreightInspectorAI, Freight
     public CompoundTag serializeNBT(HolderLookup.Provider provider) {
         CompoundTag tag = super.serializeNBT(provider);
         if (getWorkerAI() != null) {
-            getWorkerAI().write(tag, provider);
+            getWorkerAI().writeData(tag, provider); // Calls the custom writeData method
         }
         return tag;
     }
@@ -56,7 +56,7 @@ public class FreightInspectorJob extends AbstractJob<FreightInspectorAI, Freight
     public void deserializeNBT(HolderLookup.Provider provider, CompoundTag nbt) {
         super.deserializeNBT(provider, nbt);
         if (getWorkerAI() != null) {
-            getWorkerAI().read(nbt, provider);
+            getWorkerAI().readData(nbt, provider); // Calls the custom readData method
         }
     }
     

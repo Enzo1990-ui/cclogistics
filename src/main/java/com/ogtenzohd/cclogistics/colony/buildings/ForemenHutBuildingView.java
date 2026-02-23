@@ -20,6 +20,19 @@ public class ForemenHutBuildingView extends AbstractBuildingView implements IBui
     }
 
     @Override
+    public <T extends IBuildingModuleView> T getModuleViewMatching(Class<T> clazz, Predicate<? super T> modulePredicate) {
+        T result = super.getModuleViewMatching(clazz, modulePredicate);
+        // Failsafe
+        if (result == null && IAssignmentModuleView.class.isAssignableFrom(clazz)) {
+            List<WorkerBuildingModuleView> workers = getModuleViews(WorkerBuildingModuleView.class);
+            if (!workers.isEmpty()) {
+                return (T) workers.get(0); 
+            }
+        }
+        return result;
+    }
+
+    @Override
     public void openGui(boolean shouldOpenInv) {
         if (shouldOpenInv) {
             if (Minecraft.getInstance().player != null) {
@@ -31,20 +44,5 @@ public class ForemenHutBuildingView extends AbstractBuildingView implements IBui
             return; 
         }
         super.openGui(false);
-    }
-
-    @Override
-    public <T extends IBuildingModuleView> T getModuleViewMatching(Class<T> clazz, Predicate<? super T> modulePredicate) {
-        T result = super.getModuleViewMatching(clazz, modulePredicate);
-        
-        // Failsafe: Stop WindowHireWorker from crashing when swapping jobs directly
-        if (result == null && IAssignmentModuleView.class.isAssignableFrom(clazz)) {
-            List<WorkerBuildingModuleView> workers = getModuleViews(WorkerBuildingModuleView.class);
-            if (!workers.isEmpty()) {
-                return (T) workers.get(0);
-            }
-        }
-        
-        return result;
     }
 }
