@@ -113,7 +113,7 @@ public class LogisticsRequestHelper {
                 // This forces Minecolonies to generate requests for the base materials instead.
                 if (canColonyCraft(colony, itemToSend)) {
                     if (CCLConfig.INSTANCE.debugMode.get()) {
-                        LOGGER.info("[CCLogistics] Skipped request for " + itemToSend.getHoverName().getString() + " because the colony knows how to craft it.");
+                        if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[CCLogistics] Skipped request for " + itemToSend.getHoverName().getString() + " because the colony knows how to craft it.");
                     }
                     continue; 
                 }
@@ -122,7 +122,7 @@ public class LogisticsRequestHelper {
                 if (hasStock(networkInventory, itemToSend)) {
                     if (LogisticsBridge.sendPackage(ticker, itemToSend, targetAddress, null)) {
                         String msg = "Received " + itemToSend.getHoverName().getString();
-                        LOGGER.info("[CCLogistics] Imported " + itemToSend.getHoverName().getString() + " for " + targetAddress);
+                        if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[CCLogistics] Imported " + itemToSend.getHoverName().getString() + " for " + targetAddress);
                         if (auditLog != null) auditLog.add(msg);
                         
                         if (onImportSuccess != null) {
@@ -232,7 +232,7 @@ public class LogisticsRequestHelper {
             }
         } catch (Exception e) {
             if (CCLConfig.INSTANCE.debugMode.get()) {
-                LOGGER.warn("[CCLogistics] Could not check recipe manager for " + stack.getHoverName().getString());
+                if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.warn("[CCLogistics] Could not check recipe manager for " + stack.getHoverName().getString());
             }
         }
         return false;
