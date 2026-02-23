@@ -52,29 +52,12 @@ public class FreightInspectorAI extends AbstractEntityAIBasic<FreightInspectorJo
     }
 
     private String applySpellingMistakes(String logLine, int intelligence) {
-        // High intelligence = no mistakes!
-        if (intelligence > 50) return logLine;
-        
-        // Lower intelligence = higher chance to make a typo!
-        int mistakeChance = 60 - intelligence; // Level 1 = 59% chance, Level 50 = 10% chance
-        
-        if (job.getColony().getWorld().random.nextInt(100) < mistakeChance) {
-            // Hilarious typo replacements
-            if (logLine.contains("Exported")) logLine = logLine.replace("Exported", "Egsported");
-            if (logLine.contains("Imported")) logLine = logLine.replace("Imported", "Inpoted");
-            if (logLine.contains("Stone")) logLine = logLine.replace("Stone", "Ston");
-            if (logLine.contains("Wood")) logLine = logLine.replace("Wood", "Wud");
-            if (logLine.contains("Iron")) logLine = logLine.replace("Iron", "Irun");
-            if (logLine.contains("Package")) logLine = logLine.replace("Package", "Pakige");
-            if (logLine.contains("Box")) logLine = logLine.replace("Box", "Bocks");
-            
-            // Randomly mess up numbers
-            if (job.getColony().getWorld().random.nextBoolean()) {
-                 logLine = logLine.replace("x64", "x65?");
-                 logLine = logLine.replace("x32", "x3ish");
-            }
-        }
-        return logLine;
+        // Intelligence level 20+ means perfect record keeping!
+        if (intelligence >= 20) return logLine;
+
+        // Use the TypoGenerator to mangle the entire log line.
+        // It will automatically decide the severity based on the worker's intelligence.
+        return com.ogtenzohd.cclogistics.util.TypoGenerator.generateSpellingMistake(logLine, intelligence);
     }
 
     @Override
