@@ -52,29 +52,15 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
     public Class<FreightDepotBuilding> getExpectedBuildingClass() {
         return FreightDepotBuilding.class;
     }
+	
+	private int getSkillLevel(com.minecolonies.api.entity.citizen.Skill skill) {
+        if (job.getCitizen() == null || job.getCitizen().getCitizenSkillHandler() == null) return 1;
+        return job.getCitizen().getCitizenSkillHandler().getLevel(skill);
+    }
 
     public void tick() {
         if (delay > 0) {
-            // --- NEW RECALL FAILSAFE ---
-            // If they are supposed to be inspecting, but get recalled > 5 blocks away, reset them!
-            if (currentTarget != null && (state == State.AT_TOWNHALL || state == State.AT_WAREHOUSE || state == State.AT_DEPOT)) {
-                boolean isNear = job.getCitizen().getEntity().map(e -> e.blockPosition().closerThan(currentTarget, 5.0)).orElse(false);
-                if (!isNear) {
-                    delay = 0;
-                    state = State.IDLE;
-                    setHoldingClipboard(false);
-                    return;
-                }
-            }
-            // ---------------------------
-
             delay--;
-            
-            // If they are actively inspecting a building, play a scribbling sound every ~1.25 seconds
-            if (delay % 25 == 0 && (state == State.AT_TOWNHALL || state == State.AT_WAREHOUSE || state == State.AT_DEPOT)) {
-                playScribbleSound();
-            }
-            
             return;
         }
 
@@ -122,7 +108,9 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                      LOGGER.error("[LogisticsAI] Worker is not assigned to a Freight Depot!");
                 }
                 
-                setHoldingClipboard(false); // Put the clipboard away
+                int townhallSpeed = Math.max(20, 100 - getSkillLevel(com.minecolonies.api.entity.citizen.Skill.Athletics));
+                delay = townhallSpeed;
+				setHoldingClipboard(false); // Put the clipboard away
                 state = State.TO_WAREHOUSE;
                 break;
 
@@ -207,9 +195,12 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
 
             case AT_DEPOT:
                 if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[LogisticsAI] Resting at Depot...");
-                setHoldingClipboard(false); // Put the clipboard away for break time
                 state = State.IDLE;
-                delay = CCLConfig.INSTANCE.coordinatorCooldown.get();
+                
+                // Base cooldown is defined in config, but reduced by Intelligence!
+                int baseCooldown = CCLConfig.INSTANCE.coordinatorCooldown.get();
+                int cooldownReduction = getSkillLevel(com.minecolonies.api.entity.citizen.Skill.Intelligence) * 2; 
+                delay = Math.max(20, baseCooldown - cooldownReduction); 
                 break;
         }
     }
@@ -249,7 +240,7 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
         });
     }
     
-    public void write(CompoundTag tag, HolderLookup.Provider provider) {
+    public void writeData(CompoundTag tag, HolderLookup.Provider provider) {
         tag.putInt("State", state.ordinal());
         tag.putInt("Delay", delay);
         if (currentTarget != null) {
@@ -257,7 +248,7 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
         }
     }
 
-    public void read(CompoundTag tag, HolderLookup.Provider provider) {
+    public void readData(CompoundTag tag, HolderLookup.Provider provider) {
         if (tag.contains("State")) {
             state = State.values()[tag.getInt("State")];
         }

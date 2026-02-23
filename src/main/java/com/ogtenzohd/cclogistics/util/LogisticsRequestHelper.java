@@ -93,11 +93,12 @@ public class LogisticsRequestHelper {
                 if (targetAddress == null) continue;
 
                 ItemStack itemToSend = ItemStack.EMPTY;
+                int amountNeeded = 1; // Default to 1 for tools/armor
                 String reqType = request.getClass().getSimpleName();
 
                 if (request.getRequest() instanceof Stack itemReq) {
                     itemToSend = itemReq.getStack().copy(); 
-                    itemToSend.setCount(itemReq.getCount());
+                    amountNeeded = itemReq.getCount(); // Grab the TRUE amount, bypassing the 64-clamp
                 } 
                 else if (reqType.contains("ToolRequest")) {
                     itemToSend = solveRequestByTier(request, networkInventory, "getMiningLevel");
@@ -108,21 +109,18 @@ public class LogisticsRequestHelper {
 
                 if (itemToSend.isEmpty()) continue;
 
-                // --- NEW CRAFTING CHECK ---
-                // If the colony knows how to craft this item, skip it!
-                // This forces Minecolonies to generate requests for the base materials instead.
                 if (canColonyCraft(colony, itemToSend)) {
                     if (CCLConfig.INSTANCE.debugMode.get()) {
-                        if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[CCLogistics] Skipped request for " + itemToSend.getHoverName().getString() + " because the colony knows how to craft it.");
+                        LOGGER.info("[CCLogistics] Skipped request for " + itemToSend.getHoverName().getString() + " because the colony knows how to craft it.");
                     }
                     continue; 
                 }
-                // --------------------------
 
-                if (hasStock(networkInventory, itemToSend)) {
-                    if (LogisticsBridge.sendPackage(ticker, itemToSend, targetAddress, null)) {
+                // Check stock using the true amount, and send using the true amount!
+                if (hasStock(networkInventory, itemToSend, amountNeeded)) {
+                    if (LogisticsBridge.sendPackage(ticker, itemToSend, amountNeeded, targetAddress, null)) {
                         String msg = "Received " + itemToSend.getHoverName().getString();
-                        if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[CCLogistics] Imported " + itemToSend.getHoverName().getString() + " for " + targetAddress);
+                        if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[CCLogistics] Imported " + amountNeeded + "x " + itemToSend.getHoverName().getString() + " for " + targetAddress);
                         if (auditLog != null) auditLog.add(msg);
                         
                         if (onImportSuccess != null) {
@@ -199,10 +197,10 @@ public class LogisticsRequestHelper {
         } catch (Exception e) { return ItemStack.EMPTY; }
     }
 
-    private static boolean hasStock(List<BigItemStack> networkInv, ItemStack needed) {
+    private static boolean hasStock(List<BigItemStack> networkInv, ItemStack needed, int amountNeeded) {
         for (BigItemStack bis : networkInv) {
             if (ItemStack.isSameItemSameComponents(bis.stack, needed)) {
-                return bis.count >= needed.getCount();
+                return bis.count >= amountNeeded;
             }
         }
         return false;

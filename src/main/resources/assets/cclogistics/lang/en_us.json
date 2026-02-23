@@ -12,5 +12,13 @@
 
   "com.cclogistics.job.logistics_coordinator": "Logistics Coordinator",
   "com.cclogistics.job.packer_agent": "Packer Agent",
-  "com.cclogistics.job.freight_inspector": "Freight Inspector"
+  "com.cclogistics.job.freight_inspector": "Freight Inspector",
+  
+  "cclogistics:logistics_coordinator.job.desc": "The Logistics Coordinator stands at the Town Hall and relays colony requests to the Logistics network.",
+  "cclogistics:packer_agent.job.desc": "The Packer Agent moves items between the Freight Depot and the Warehouse, boxing and unboxing them.",
+  "cclogistics:freight_inspector.job.desc": "The Freight Inspector monitors incoming and outgoing logistics tasks.",
+  
+  "cclogistics:cclogistics_coordinator.skills.desc": "Benefits from high Intelligence and Athletics to process requests faster.",
+  "cclogistics:packer_agent.skills.desc": "Benefits from high Athletics and Strength to move packages quickly.",
+  "cclogistics:freight_inspector.skills.desc": "Benefits from high Intelligence to accurately inspect manifests."
 }

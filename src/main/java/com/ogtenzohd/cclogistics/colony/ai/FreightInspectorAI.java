@@ -45,6 +45,37 @@ public class FreightInspectorAI extends AbstractEntityAIBasic<FreightInspectorJo
     public FreightInspectorAI(FreightInspectorJob job) {
         super(job);
     }
+	
+	private int getSkillLevel(com.minecolonies.api.entity.citizen.Skill skill) {
+        if (job.getCitizen() == null || job.getCitizen().getCitizenSkillHandler() == null) return 1;
+        return job.getCitizen().getCitizenSkillHandler().getLevel(skill);
+    }
+
+    private String applySpellingMistakes(String logLine, int intelligence) {
+        // High intelligence = no mistakes!
+        if (intelligence > 50) return logLine;
+        
+        // Lower intelligence = higher chance to make a typo!
+        int mistakeChance = 60 - intelligence; // Level 1 = 59% chance, Level 50 = 10% chance
+        
+        if (job.getColony().getWorld().random.nextInt(100) < mistakeChance) {
+            // Hilarious typo replacements
+            if (logLine.contains("Exported")) logLine = logLine.replace("Exported", "Egsported");
+            if (logLine.contains("Imported")) logLine = logLine.replace("Imported", "Inpoted");
+            if (logLine.contains("Stone")) logLine = logLine.replace("Stone", "Ston");
+            if (logLine.contains("Wood")) logLine = logLine.replace("Wood", "Wud");
+            if (logLine.contains("Iron")) logLine = logLine.replace("Iron", "Irun");
+            if (logLine.contains("Package")) logLine = logLine.replace("Package", "Pakige");
+            if (logLine.contains("Box")) logLine = logLine.replace("Box", "Bocks");
+            
+            // Randomly mess up numbers
+            if (job.getColony().getWorld().random.nextBoolean()) {
+                 logLine = logLine.replace("x64", "x65?");
+                 logLine = logLine.replace("x32", "x3ish");
+            }
+        }
+        return logLine;
+    }
 
     @Override
     public Class<ForemenHutBuilding> getExpectedBuildingClass() {
@@ -118,14 +149,18 @@ public class FreightInspectorAI extends AbstractEntityAIBasic<FreightInspectorJo
                 if (currentTarget != null && job.getColony().getWorld() != null) {
                     BlockEntity be = job.getColony().getWorld().getBlockEntity(currentTarget);
                     if (be instanceof FreightDepotBlockEntity depotBE) {
+                        int intel = getSkillLevel(com.minecolonies.api.entity.citizen.Skill.Intelligence);
+                        
                         List<String> in = depotBE.collectIncomingLogs();
+                        for (String s : in) bufferedIncoming.add(applySpellingMistakes(s, intel));
+                        
                         List<String> out = depotBE.collectOutgoingLogs();
-                        bufferedIncoming.addAll(in);
-                        bufferedOutgoing.addAll(out);
+                        for (String s : out) bufferedOutgoing.add(applySpellingMistakes(s, intel));
                     }
                 }
                 
-                setHoldingClipboard(false); // Put clipboard away to walk
+                // Calculate typing speed based on intelligence
+                delay = Math.max(10, 80 - getSkillLevel(com.minecolonies.api.entity.citizen.Skill.Intelligence));
                 state = State.TO_HUT;
                 break;
 
@@ -211,7 +246,8 @@ public class FreightInspectorAI extends AbstractEntityAIBasic<FreightInspectorJo
         });
     }
     
-    public void write(CompoundTag tag, HolderLookup.Provider provider) {
+    // Renamed from write to writeData!
+    public void writeData(CompoundTag tag, HolderLookup.Provider provider) {
         tag.putInt("State", state.ordinal());
         tag.putInt("Delay", delay);
         if (currentTarget != null) {
@@ -227,7 +263,8 @@ public class FreightInspectorAI extends AbstractEntityAIBasic<FreightInspectorJo
         tag.put("BufferedOutgoing", outList);
     }
 
-    public void read(CompoundTag tag, HolderLookup.Provider provider) {
+    // Renamed from read to readData!
+    public void readData(CompoundTag tag, HolderLookup.Provider provider) {
         if (tag.contains("State")) {
             state = State.values()[tag.getInt("State")];
         }

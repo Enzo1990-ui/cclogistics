@@ -178,7 +178,7 @@ public class LogisticsBridge {
         return !a.isEmpty() && !b.isEmpty() && a.getItem() == b.getItem();
     }
 
-    public static boolean sendPackage(StockTickerBlockEntity ticker, Object token, String address, PackageOrder dummyOrder) {
+    public static boolean sendPackage(StockTickerBlockEntity ticker, Object token, int countNeeded, String address, PackageOrder dummyOrder) {
         if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[Bridge] sendPackage invoked for Address: " + address);
         
         if (!(token instanceof ItemStack stack) || stack.isEmpty()) {
@@ -186,24 +186,25 @@ public class LogisticsBridge {
             return false;
         }
 
-       CFLCompat.init();
-		if (CFLCompat.cflLoaded) {
-			// If Create Fabric Logistics is loaded, their custom network handles routing better.
-			// Bypass Create's native mixin to prevent double-sending.
-			if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[Bridge] CFL Detected! Bypassing Native LogisticsManager...");
-            
+        CFLCompat.init();
+        if (CFLCompat.cflLoaded) {
+            if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[Bridge] CFL Detected! Bypassing Native LogisticsManager...");
             LogisticallyLinkedBehaviour link = ticker.getBehaviour(LogisticallyLinkedBehaviour.TYPE);
             if (link != null && link.freqId != null) {
-                 return CFLCompat.sendCFLPackage(link.freqId, stack, address);
+                 ItemStack cflStack = stack.copy();
+                 try { cflStack.setCount(countNeeded); } catch(Exception e){} // Attempt to feed CFL the bulk count
+                 return CFLCompat.sendCFLPackage(link.freqId, cflStack, address);
             }
-            if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.warn("[Bridge] StockTicker has no Frequency ID to broadcast on!");
             return false;
         }
 		
         if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[Bridge] Native Create Detected. Forwarding to StockTicker Mixin...");
         ItemStack typeStack = stack.copy();
         typeStack.setCount(1);
-        BigItemStack bigStack = new BigItemStack(typeStack, stack.getCount());
+        
+        // --- BULK FIX --- 
+        // We now feed the exact request number directly into Create's BigItemStack!
+        BigItemStack bigStack = new BigItemStack(typeStack, countNeeded);
         PackageOrder realOrder = new PackageOrder(Collections.singletonList(bigStack));
         PackageOrderWithCrafts wrapped = new PackageOrderWithCrafts(realOrder, Collections.emptyList());
 
