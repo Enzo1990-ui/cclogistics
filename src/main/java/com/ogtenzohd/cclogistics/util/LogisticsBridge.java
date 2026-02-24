@@ -192,7 +192,7 @@ public class LogisticsBridge {
             LogisticallyLinkedBehaviour link = ticker.getBehaviour(LogisticallyLinkedBehaviour.TYPE);
             if (link != null && link.freqId != null) {
                  ItemStack cflStack = stack.copy();
-                 try { cflStack.setCount(countNeeded); } catch(Exception e){} // Attempt to feed CFL the bulk count
+                 try { cflStack.setCount(countNeeded); } catch(Exception e){}
                  return CFLCompat.sendCFLPackage(link.freqId, cflStack, address);
             }
             return false;
@@ -202,8 +202,6 @@ public class LogisticsBridge {
         ItemStack typeStack = stack.copy();
         typeStack.setCount(1);
         
-        // --- BULK FIX --- 
-        // We now feed the exact request number directly into Create's BigItemStack!
         BigItemStack bigStack = new BigItemStack(typeStack, countNeeded);
         PackageOrder realOrder = new PackageOrder(Collections.singletonList(bigStack));
         PackageOrderWithCrafts wrapped = new PackageOrderWithCrafts(realOrder, Collections.emptyList());

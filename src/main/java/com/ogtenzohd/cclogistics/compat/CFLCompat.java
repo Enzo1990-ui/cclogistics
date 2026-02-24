@@ -7,7 +7,6 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.fml.ModList;
 import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
-import com.ogtenzohd.cclogistics.compat.CFLCompat;
 import com.ogtenzohd.cclogistics.config.CCLConfig;
 import java.lang.reflect.Method;
 import java.util.Collections;

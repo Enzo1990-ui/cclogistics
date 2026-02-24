@@ -9,6 +9,7 @@ import com.minecolonies.api.colony.IColonyManager;
 import com.minecolonies.api.crafting.IRecipeStorage;
 import net.minecraft.world.item.ItemStack;
 import com.ogtenzohd.cclogistics.config.CCLConfig;
+import com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule;
 import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
@@ -22,6 +23,11 @@ public class LogisticsRequestHelper {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
+    @FunctionalInterface
+    public interface TrackerUpdater {
+        void track(String itemName, int amount, FreightTrackerModule.TrackStatus status, String override);
+    }
+
     @SuppressWarnings("unchecked")
     public static void processRequests(
             IColony colony,
@@ -30,7 +36,8 @@ public class LogisticsRequestHelper {
             Set<Object> failedRequestIds,
             Function<IRequest<?>, String> addressResolver,
             List<String> auditLog,
-            Consumer<ItemStack> onImportSuccess
+            Consumer<ItemStack> onImportSuccess,
+            TrackerUpdater trackerUpdater 
     ) {
         if (colony == null || ticker == null) return;
 
@@ -82,8 +89,6 @@ public class LogisticsRequestHelper {
 
         List<BigItemStack> networkInventory = LogisticsBridge.getNetworkInventory(ticker);
         
-        if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[CCLogistics] Processing " + allRequests.size() + " active requests...");
-
         int limit = 0;
         for (IRequest<?> request : allRequests) {
             if (limit++ > 50) break;
@@ -93,12 +98,12 @@ public class LogisticsRequestHelper {
                 if (targetAddress == null) continue;
 
                 ItemStack itemToSend = ItemStack.EMPTY;
-                int amountNeeded = 1; // Default to 1 for tools/armor
+                int amountNeeded = 1; 
                 String reqType = request.getClass().getSimpleName();
 
                 if (request.getRequest() instanceof Stack itemReq) {
                     itemToSend = itemReq.getStack().copy(); 
-                    amountNeeded = itemReq.getCount(); // Grab the TRUE amount, bypassing the 64-clamp
+                    amountNeeded = itemReq.getCount(); 
                 } 
                 else if (reqType.contains("ToolRequest")) {
                     itemToSend = solveRequestByTier(request, networkInventory, "getMiningLevel");
@@ -106,26 +111,62 @@ public class LogisticsRequestHelper {
                 else if (reqType.contains("ArmorRequest")) {
                     itemToSend = solveRequestByTier(request, networkInventory, "getLevel");
                 }
-
-                if (itemToSend.isEmpty()) continue;
-
-                if (canColonyCraft(colony, itemToSend)) {
-                    if (CCLConfig.INSTANCE.debugMode.get()) {
-                        LOGGER.info("[CCLogistics] Skipped request for " + itemToSend.getHoverName().getString() + " because the colony knows how to craft it.");
+                else {
+                    Object innerReq = request.getRequest();
+                    if (innerReq != null) {
+                        for (Field f : getAllFields(innerReq.getClass())) {
+                            try {
+                                f.setAccessible(true);
+                                Object val = f.get(innerReq);
+                                if (val instanceof ItemStack stack && !stack.isEmpty()) {
+                                    itemToSend = stack.copy();
+                                    amountNeeded = stack.getCount();
+                                    break;
+                                } else if (val instanceof Stack stackReq) {
+                                    itemToSend = stackReq.getStack().copy();
+                                    amountNeeded = stackReq.getCount();
+                                    break;
+                                }
+                            } catch (Exception ignored) {}
+                        }
                     }
-                    continue; 
                 }
 
-                // Check stock using the true amount, and send using the true amount!
-                if (hasStock(networkInventory, itemToSend, amountNeeded)) {
+                if (itemToSend.isEmpty()) continue;
+                if (canColonyCraft(colony, itemToSend)) continue; 
+
+                if (trackerUpdater != null) {
+                    trackerUpdater.track(itemToSend.getHoverName().getString(), amountNeeded, FreightTrackerModule.TrackStatus.REQUESTED, null);
+                }
+
+                int currentStock = getStockCount(networkInventory, itemToSend);
+
+                if (currentStock >= amountNeeded) {
                     if (LogisticsBridge.sendPackage(ticker, itemToSend, amountNeeded, targetAddress, null)) {
-                        String msg = "Received " + itemToSend.getHoverName().getString();
-                        if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[CCLogistics] Imported " + amountNeeded + "x " + itemToSend.getHoverName().getString() + " for " + targetAddress);
-                        if (auditLog != null) auditLog.add(msg);
-                        
-                        if (onImportSuccess != null) {
-                            onImportSuccess.accept(itemToSend);
+                        if (trackerUpdater != null) {
+                            trackerUpdater.track(itemToSend.getHoverName().getString(), amountNeeded, FreightTrackerModule.TrackStatus.ACCEPTED, null);
                         }
+                        
+                        String successMsg = "Received " + itemToSend.getHoverName().getString();
+                        if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[CCLogistics] SUCCESSFULLY imported " + amountNeeded + "x " + itemToSend.getHoverName().getString());
+                        
+                        if (auditLog != null) auditLog.add("IN;" + successMsg);
+                        if (onImportSuccess != null) onImportSuccess.accept(itemToSend);
+                    }
+                } else {
+                    // Logic for "X Missing" or "No Stock"
+                    String statusMessage = (currentStock == 0) ? "No Stock" : (amountNeeded - currentStock) + " Missing";
+
+                    if (trackerUpdater != null) {
+                        trackerUpdater.track(itemToSend.getHoverName().getString(), amountNeeded, FreightTrackerModule.TrackStatus.NO_STOCK, statusMessage);
+                    }
+
+                    if (auditLog != null) {
+                        auditLog.add(itemToSend.getHoverName().getString() + ": " + statusMessage);
+                    }
+
+                    if (auditLog != null) {
+						auditLog.add("MISS;" + itemToSend.getHoverName().getString() + ": " + statusMessage);
                     }
                 }
 
@@ -135,35 +176,36 @@ public class LogisticsRequestHelper {
         }
     }
 
-    private static Object getFieldByName(Object target, String name) {
-        for (Field f : getAllFields(target.getClass())) {
-            if (f.getName().equals(name)) {
-                try {
-                    f.setAccessible(true);
-                    return f.get(target);
-                } catch (Exception ignored) {}
+    private static int getStockCount(List<BigItemStack> networkInv, ItemStack needed) {
+        int totalStock = 0;
+        for (BigItemStack bis : networkInv) {
+            if (ItemStack.isSameItem(bis.stack, needed)) {
+                totalStock += bis.count;
             }
         }
-        return null;
-    }
-
-    private static List<Field> getAllFields(Class<?> type) {
-        List<Field> fields = new ArrayList<>();
-        for (Class<?> c = type; c != null; c = c.getSuperclass()) {
-            fields.addAll(Arrays.asList(c.getDeclaredFields()));
-        }
-        return fields;
+        return totalStock;
     }
 
     private static ItemStack solveRequestByTier(IRequest<?> request, List<BigItemStack> inventory, String checkMethodName) {
         try {
-            Object innerObj = extractField(request, "requested");
+            Object innerObj = request.getRequest(); 
             if (innerObj == null) return ItemStack.EMPTY;
-            Object equipmentType = extractField(innerObj, "equipmentType");
+            
+            Object equipmentType = getFieldByName(innerObj, "equipmentType");
+            if (equipmentType == null) equipmentType = getFieldByName(innerObj, "type");
             if (equipmentType == null) return ItemStack.EMPTY;
 
-            int minLevel = (int) extractField(innerObj, "minLevel");
-            int maxLevel = (int) extractField(innerObj, "maxLevel");
+            int minLevel = 0;
+            int maxLevel = 99;
+            try { 
+                Object minObj = getFieldByName(innerObj, "minLevel");
+                if (minObj != null) minLevel = (int) minObj;
+            } catch (Exception ignored) {}
+            
+            try { 
+                Object maxObj = getFieldByName(innerObj, "maxLevel");
+                if (maxObj != null) maxLevel = (int) maxObj;
+            } catch (Exception ignored) {}
 
             Method levelCheckMethod = null;
             try { levelCheckMethod = equipmentType.getClass().getMethod(checkMethodName, ItemStack.class); } catch (Exception e) {}
@@ -185,11 +227,13 @@ public class LogisticsRequestHelper {
             if (candidates.isEmpty()) return ItemStack.EMPTY;
 
             final Method finalMethod = levelCheckMethod;
+            final Object finalEquipmentType = equipmentType;
+
             candidates.sort((a, b) -> {
                 try {
-                    int tierA = (int) finalMethod.invoke(equipmentType, a);
-                    int tierB = (int) finalMethod.invoke(equipmentType, b);
-                    return Integer.compare(tierB, tierA);
+                    int tierA = (int) finalMethod.invoke(finalEquipmentType, a);
+                    int tierB = (int) finalMethod.invoke(finalEquipmentType, b);
+                    return Integer.compare(tierB, tierA); 
                 } catch (Exception e) { return 0; }
             });
 
@@ -197,52 +241,41 @@ public class LogisticsRequestHelper {
         } catch (Exception e) { return ItemStack.EMPTY; }
     }
 
-    private static boolean hasStock(List<BigItemStack> networkInv, ItemStack needed, int amountNeeded) {
-        for (BigItemStack bis : networkInv) {
-            if (ItemStack.isSameItemSameComponents(bis.stack, needed)) {
-                return bis.count >= amountNeeded;
-            }
-        }
-        return false;
-    }
-	
-	private static boolean canColonyCraft(IColony colony, ItemStack stack) {
+    private static boolean canColonyCraft(IColony colony, ItemStack stack) {
         if (stack.isEmpty()) return false;
-        
         try {
             var recipes = IColonyManager.getInstance().getRecipeManager().getRecipes();
-            
             for (Object storageObj : recipes.values()) {
                 if (storageObj instanceof IRecipeStorage storage) {
-                    
-                    if (storage.getPrimaryOutput() != null && storage.getPrimaryOutput().getItem() == stack.getItem()) {
-                        return true;
-                    }
-                    
+                    if (storage.getPrimaryOutput() != null && storage.getPrimaryOutput().getItem() == stack.getItem()) return true;
                     if (storage.getAlternateOutputs() != null) {
                         for (ItemStack alt : storage.getAlternateOutputs()) {
-                            if (alt != null && alt.getItem() == stack.getItem()) {
-                                return true;
-                            }
+                            if (alt != null && alt.getItem() == stack.getItem()) return true;
                         }
                     }
                 }
             }
-        } catch (Exception e) {
-            if (CCLConfig.INSTANCE.debugMode.get()) {
-                if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.warn("[CCLogistics] Could not check recipe manager for " + stack.getHoverName().getString());
-            }
-        }
+        } catch (Exception e) {}
         return false;
     }
 
-    private static Object extractField(Object target, String fieldName) throws IllegalAccessException {
+    private static Object getFieldByName(Object target, String name) {
         for (Field f : getAllFields(target.getClass())) {
-            if (f.getName().equals(fieldName)) {
-                f.setAccessible(true);
-                return f.get(target);
+            if (f.getName().equals(name)) {
+                try {
+                    f.setAccessible(true);
+                    return f.get(target);
+                } catch (Exception ignored) {}
             }
         }
         return null;
+    }
+
+    private static List<Field> getAllFields(Class<?> type) {
+        List<Field> fields = new ArrayList<>();
+        for (Class<?> c = type; c != null; c = c.getSuperclass()) {
+            fields.addAll(Arrays.asList(c.getDeclaredFields()));
+        }
+        return fields;
     }
 }

@@ -4,15 +4,10 @@ import com.minecolonies.api.colony.IColony;
 import com.minecolonies.core.colony.buildings.AbstractBuilding;
 import com.ogtenzohd.cclogistics.colony.buildings.modules.LoggerModule;
 import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.core.HolderLookup;
-import com.ogtenzohd.cclogistics.config.CCLConfig;
 import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
 public class ForemenHutBuilding extends AbstractBuilding {
-
-    private static final Logger LOGGER = LogUtils.getLogger();
 
     public ForemenHutBuilding(IColony colony, BlockPos pos) {
         super(colony, pos);

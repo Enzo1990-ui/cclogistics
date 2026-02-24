@@ -1,9 +1,11 @@
 package com.ogtenzohd.cclogistics.colony.ai;
 
 import com.minecolonies.core.entity.ai.workers.AbstractEntityAIBasic;
+import com.minecolonies.api.entity.citizen.Skill;
 import com.ogtenzohd.cclogistics.blocks.custom.freight_depot.FreightDepotBlockEntity;
 import com.ogtenzohd.cclogistics.colony.buildings.ForemenHutBuilding;
 import com.ogtenzohd.cclogistics.colony.job.FreightInspectorJob;
+import com.ogtenzohd.cclogistics.config.CCLConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -33,8 +35,8 @@ public class FreightInspectorAI extends AbstractEntityAIBasic<FreightInspectorJo
         TO_HUT,
         AT_HUT
     }
-	
-	private static final Logger LOGGER = LogUtils.getLogger();
+    
+    private static final Logger LOGGER = LogUtils.getLogger();
 
     private State state = State.IDLE;
     private int delay = 0;
@@ -45,19 +47,22 @@ public class FreightInspectorAI extends AbstractEntityAIBasic<FreightInspectorJo
     public FreightInspectorAI(FreightInspectorJob job) {
         super(job);
     }
-	
-	private int getSkillLevel(com.minecolonies.api.entity.citizen.Skill skill) {
+    
+    private int getSkillLevel(Skill skill) {
         if (job.getCitizen() == null || job.getCitizen().getCitizenSkillHandler() == null) return 1;
         return job.getCitizen().getCitizenSkillHandler().getLevel(skill);
     }
 
     private String applySpellingMistakes(String logLine, int intelligence) {
-        // Intelligence level 20+ means perfect record keeping!
+        if (!CCLConfig.INSTANCE.enableSkillScaling.get()) return logLine;
         if (intelligence >= 20) return logLine;
 
-        // Use the TypoGenerator to mangle the entire log line.
-        // It will automatically decide the severity based on the worker's intelligence.
-        return com.ogtenzohd.cclogistics.util.TypoGenerator.generateSpellingMistake(logLine, intelligence);
+        int baseChance = CCLConfig.INSTANCE.baseSpellingMistakeChance.get();
+        if (baseChance == 0) return logLine;
+
+        net.minecraft.util.RandomSource rand = job.getColony().getWorld().random;
+        
+        return com.ogtenzohd.cclogistics.util.TypoGenerator.generateSpellingMistake(logLine, intelligence, baseChance, rand);
     }
 
     @Override
@@ -67,7 +72,6 @@ public class FreightInspectorAI extends AbstractEntityAIBasic<FreightInspectorJo
 
     public void tick() {
         if (delay > 0) {
-            // If they are supposed to be inspecting, but get recalled > 5 blocks away, reset them!
             if (currentTarget != null && (state == State.AT_DEPOT || state == State.AT_HUT)) {
                 boolean isNear = job.getCitizen().getEntity().map(e -> e.blockPosition().closerThan(currentTarget, 5.0)).orElse(false);
                 if (!isNear) {
@@ -77,25 +81,18 @@ public class FreightInspectorAI extends AbstractEntityAIBasic<FreightInspectorJo
                     return;
                 }
             }
-            // ---------------------------
 
             delay--;
             
-            // -- ANIMATION SEQUENCES --
-            
-            // 1. At Depot: Play scribbling sound every 20 ticks
             if (state == State.AT_DEPOT && delay % 20 == 0) {
                 playScribbleSound();
             }
             
-            // 2. At Hut: Paging sequence (Total delay starts at 150)
             if (state == State.AT_HUT) {
-                // Put away and flip page (at 120, 70, and 20 ticks remaining)
                 if (delay == 120 || delay == 70 || delay == 20) {
                     setHoldingClipboard(false);
                     playPageFlipSound();
                 } 
-                // Pull clipboard back out to read (at 100 and 50 ticks remaining)
                 else if (delay == 100 || delay == 50) {
                     setHoldingClipboard(true);
                 }
@@ -106,7 +103,7 @@ public class FreightInspectorAI extends AbstractEntityAIBasic<FreightInspectorJo
 
         switch (state) {
             case IDLE:
-                setHoldingClipboard(false); // Ensure hands are empty
+                setHoldingClipboard(false); 
                 state = State.TO_DEPOT;
                 break;
 
@@ -121,7 +118,7 @@ public class FreightInspectorAI extends AbstractEntityAIBasic<FreightInspectorJo
                     if (isAt(currentTarget)) {
                         state = State.AT_DEPOT;
                         delay = 60; 
-                        setHoldingClipboard(true); // Pull out clipboard to inspect depot
+                        setHoldingClipboard(true); 
                     }
                 } else {
                     delay = 200;
@@ -129,21 +126,46 @@ public class FreightInspectorAI extends AbstractEntityAIBasic<FreightInspectorJo
                 break;
 
             case AT_DEPOT:
+                int intel = getSkillLevel(Skill.Intelligence);
+                
                 if (currentTarget != null && job.getColony().getWorld() != null) {
                     BlockEntity be = job.getColony().getWorld().getBlockEntity(currentTarget);
                     if (be instanceof FreightDepotBlockEntity depotBE) {
-                        int intel = getSkillLevel(com.minecolonies.api.entity.citizen.Skill.Intelligence);
                         
+                        // Protect Incoming Logs
                         List<String> in = depotBE.collectIncomingLogs();
-                        for (String s : in) bufferedIncoming.add(applySpellingMistakes(s, intel));
+                        for (String s : in) {
+                            String[] parts = s.split(";", 2);
+                            if (parts.length == 2) {
+                                // Re-attach prefix after scrambling the message!
+                                bufferedIncoming.add(parts[0] + ";" + applySpellingMistakes(parts[1], intel));
+                            } else {
+                                bufferedIncoming.add(applySpellingMistakes(s, intel));
+                            }
+                        }
                         
+                        // Protect Outgoing Logs
                         List<String> out = depotBE.collectOutgoingLogs();
-                        for (String s : out) bufferedOutgoing.add(applySpellingMistakes(s, intel));
+                        for (String s : out) {
+                            String[] parts = s.split(";", 2);
+                            if (parts.length == 2) {
+                                bufferedOutgoing.add(parts[0] + ";" + applySpellingMistakes(parts[1], intel));
+                            } else {
+                                bufferedOutgoing.add(applySpellingMistakes(s, intel));
+                            }
+                        }
                     }
                 }
                 
-                // Calculate typing speed based on intelligence
-                delay = Math.max(10, 80 - getSkillLevel(com.minecolonies.api.entity.citizen.Skill.Intelligence));
+                // Calculate typing speed based on config and intelligence
+                int baseDelay = 80;
+                if (CCLConfig.INSTANCE.enableSkillScaling.get()) {
+                    int reduction = intel * CCLConfig.INSTANCE.cooldownReductionPerIntel.get();
+                    delay = Math.max(10, baseDelay - reduction);
+                } else {
+                    delay = baseDelay;
+                }
+                
                 state = State.TO_HUT;
                 break;
 
@@ -154,8 +176,8 @@ public class FreightInspectorAI extends AbstractEntityAIBasic<FreightInspectorJo
                     moveTo(currentTarget);
                     if (isAt(currentTarget)) {
                         state = State.AT_HUT;
-                        delay = 150; // Set to 150 to allow for 3 page-flip cycles
-                        setHoldingClipboard(true); // Pull out clipboard to log data
+                        delay = 150; 
+                        setHoldingClipboard(true); 
                     }
                 }
                 break;
@@ -178,16 +200,13 @@ public class FreightInspectorAI extends AbstractEntityAIBasic<FreightInspectorJo
                     bufferedOutgoing.clear();
                 }
                 
-                setHoldingClipboard(false); // Finished inspecting, put it away
+                setHoldingClipboard(false); 
                 state = State.IDLE;
                 delay = 600; 
                 break;
         }
     }
     
-    /**
-     * Attempts to find Minecolonies' clipboard item, falling back to a vanilla book.
-     */
     private ItemStack getClipboard() {
         net.minecraft.world.item.Item item = BuiltInRegistries.ITEM.get(ResourceLocation.tryParse("minecolonies:clipboard"));
         if (item == Items.AIR) {
@@ -196,9 +215,6 @@ public class FreightInspectorAI extends AbstractEntityAIBasic<FreightInspectorJo
         return new ItemStack(item);
     }
     
-    /**
-     * Makes the entity visually hold or put away the clipboard.
-     */
     private void setHoldingClipboard(boolean holding) {
         job.getCitizen().getEntity().ifPresent(entity -> {
             if (holding) {
@@ -209,9 +225,6 @@ public class FreightInspectorAI extends AbstractEntityAIBasic<FreightInspectorJo
         });
     }
 
-    /**
-     * Plays a cartographer scribbling sound.
-     */
     private void playScribbleSound() {
         job.getCitizen().getEntity().ifPresent(entity -> {
             float pitch = 1.0F + (entity.level().random.nextFloat() - 0.5F) * 0.2F;
@@ -219,9 +232,6 @@ public class FreightInspectorAI extends AbstractEntityAIBasic<FreightInspectorJo
         });
     }
 
-    /**
-     * Plays a page-flipping sound.
-     */
     private void playPageFlipSound() {
         job.getCitizen().getEntity().ifPresent(entity -> {
             float pitch = 0.9F + (entity.level().random.nextFloat() * 0.2F);
@@ -229,7 +239,6 @@ public class FreightInspectorAI extends AbstractEntityAIBasic<FreightInspectorJo
         });
     }
     
-    // Renamed from write to writeData!
     public void writeData(CompoundTag tag, HolderLookup.Provider provider) {
         tag.putInt("State", state.ordinal());
         tag.putInt("Delay", delay);
@@ -246,7 +255,6 @@ public class FreightInspectorAI extends AbstractEntityAIBasic<FreightInspectorJo
         tag.put("BufferedOutgoing", outList);
     }
 
-    // Renamed from read to readData!
     public void readData(CompoundTag tag, HolderLookup.Provider provider) {
         if (tag.contains("State")) {
             state = State.values()[tag.getInt("State")];
@@ -270,10 +278,15 @@ public class FreightInspectorAI extends AbstractEntityAIBasic<FreightInspectorJo
             for (int i = 0; i < list.size(); i++) bufferedOutgoing.add(list.getString(i));
         }
     }
-	
+    
     private void moveTo(BlockPos pos) {
         job.getCitizen().getEntity().ifPresent(entity -> {
-            entity.getNavigation().moveTo(pos.getX(), pos.getY(), pos.getZ(), 1.0);
+            double baseSpeed = 1.0;
+            if (CCLConfig.INSTANCE.enableSkillScaling.get()) {
+                int athletics = getSkillLevel(Skill.Athletics);
+                baseSpeed += athletics * CCLConfig.INSTANCE.speedBoostPerAthletics.get();
+            }
+            entity.getNavigation().moveTo(pos.getX(), pos.getY(), pos.getZ(), baseSpeed);
         });
     }
     

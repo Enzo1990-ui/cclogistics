@@ -1,8 +1,10 @@
 package com.ogtenzohd.cclogistics.colony.ai;
 
 import com.minecolonies.core.entity.ai.workers.AbstractEntityAIBasic;
+import com.minecolonies.api.entity.citizen.Skill;
 import com.ogtenzohd.cclogistics.blocks.custom.freight_depot.FreightDepotBlockEntity;
 import com.ogtenzohd.cclogistics.colony.buildings.FreightDepotBuilding;
+import com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule;
 import com.ogtenzohd.cclogistics.colony.job.PackerAgentJob;
 import com.ogtenzohd.cclogistics.config.CCLConfig;
 import net.minecraft.core.BlockPos;
@@ -34,15 +36,8 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
     private static final Logger LOGGER = LogUtils.getLogger();
 
     private enum State {
-        IDLE,
-        TO_DEPOT_IMPORT,
-        AT_DEPOT_IMPORT,
-        TO_WAREHOUSE,
-        AT_WAREHOUSE,
-        TO_DEPOT_EXCESS,
-        AT_DEPOT_EXCESS,
-        TO_DEPOT_EXPORT,
-        AT_DEPOT_EXPORT
+        IDLE, TO_DEPOT_IMPORT, AT_DEPOT_IMPORT, TO_WAREHOUSE, AT_WAREHOUSE,
+        TO_DEPOT_EXCESS, AT_DEPOT_EXCESS, TO_DEPOT_EXPORT, AT_DEPOT_EXPORT
     }
 
     private State state = State.IDLE;
@@ -59,22 +54,34 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
     public Class<FreightDepotBuilding> getExpectedBuildingClass() {
         return FreightDepotBuilding.class;
     }
-	
-	private int getSkillLevel(com.minecolonies.api.entity.citizen.Skill skill) {
+    
+    private int getSkillLevel(Skill skill) {
         if (job.getCitizen() == null || job.getCitizen().getCitizenSkillHandler() == null) return 1;
         return job.getCitizen().getCitizenSkillHandler().getLevel(skill);
     }
 
+    // --- TRACKING HELPER METHOD ---
+    private void updateTracker(String itemName, int amount, FreightTrackerModule.TrackStatus status) {
+        if (job.getWorkBuilding() != null) {
+            FreightTrackerModule module = job.getWorkBuilding().getModule(FreightTrackerModule.class);
+            if (module != null) {
+                if (status == FreightTrackerModule.TrackStatus.COMPLETED) {
+                    module.removeRequest(itemName);
+                } else {
+                    module.updateRequest(itemName, amount, status);
+                }
+            }
+        }
+    }
+
     public void tick() {
-        // --- VISUAL CHECK ---
         if (!holdingItems.isEmpty()) {
             job.getCitizen().getEntity().ifPresent(entity -> {
-                if (entity.getItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND).isEmpty()) {
-                    entity.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, holdingItems.get(0).copy());
+                if (entity.getItemInHand(InteractionHand.MAIN_HAND).isEmpty()) {
+                    entity.setItemInHand(InteractionHand.MAIN_HAND, holdingItems.get(0).copy());
                 }
             });
         }
-        // ------------------------
 
         if (delay > 0) {
             delay--;
@@ -107,41 +114,44 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                         if (importInv != null) {
                             List<ItemStack> rawItemsToPack = new ArrayList<>();
                             
-                            // Calculate max capacity based on Strength (Level 1 = 2 stacks, Level 100 = 12 stacks)
-                            // Capped at 9 so it never exceeds the physical size of a Create package!
-                            int rawCapacity = Math.max(2, getSkillLevel(com.minecolonies.api.entity.citizen.Skill.Strength) / 8);
-                            int maxCapacity = Math.min(rawCapacity, 9);
+                            int maxCapacity = 2; 
+                            if (CCLConfig.INSTANCE.enableSkillScaling.get()) {
+                                maxCapacity += getSkillLevel(Skill.Strength) * CCLConfig.INSTANCE.packerCapacityPerStrength.get();
+                            }
+                            maxCapacity = Math.min(maxCapacity, 9);
                             
                             for (int i = 0; i < importInv.getSlots(); i++) {
-                                // Stop sweeping if their hands are full!
                                 if (rawItemsToPack.size() >= maxCapacity) break;
                                 
                                 ItemStack check = importInv.extractItem(i, 64, true);
                                 if (!check.isEmpty()) {
                                     if (isPackage(check)) {
-                                        // If we already gathered loose items, stop and pack those first
                                         if (!rawItemsToPack.isEmpty()) break;
                                         
-                                        // Otherwise, grab the package and go!
                                         ItemStack extracted = importInv.extractItem(i, 64, false);
                                         holdingItems.add(extracted);
                                         job.getCitizen().getEntity().ifPresent(entity -> {
                                             entity.setItemInHand(InteractionHand.MAIN_HAND, extracted.copy());
                                         });
+                                        
+                                        // --- TRACKER: Package picked up! Mark as RECEIVED (Green) ---
+                                        List<ItemStack> peekContents = unpack(extracted);
+                                        for (ItemStack content : peekContents) {
+                                            updateTracker(content.getHoverName().getString(), content.getCount(), FreightTrackerModule.TrackStatus.RECEIVED);
+                                        }
+
                                         if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[PackerAI] Picked up package, moving to warehouse: " + extracted.getHoverName().getString());
                                         state = State.TO_WAREHOUSE;
                                         return;
                                     } else {
-                                        // It's a raw item! Sweep it up.
                                         rawItemsToPack.add(importInv.extractItem(i, 64, false));
                                     }
                                 }
                             }
                             
-                            // If we found loose items instead of packages, box them up safely!
                             if (!rawItemsToPack.isEmpty()) {
                                 if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[PackerAI] Found " + rawItemsToPack.size() + " loose stacks in import vault. Packing them as a fallback!");
-                                ItemStack fallbackPkg = pack(rawItemsToPack, ""); // No target address needed for the warehouse
+                                ItemStack fallbackPkg = pack(rawItemsToPack, ""); 
                                 holdingItems.add(fallbackPkg);
                                 job.getCitizen().getEntity().ifPresent(entity -> {
                                     entity.setItemInHand(InteractionHand.MAIN_HAND, fallbackPkg.copy());
@@ -183,18 +193,23 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                                 List<ItemStack> remainingList = new ArrayList<>();
                                 
                                 for (ItemStack stack : holdingItems) {
-                                    // If it's a package, unpack it NOW at the warehouse
                                     if (isPackage(stack)) {
                                         if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[PackerAI] Unpacking package at warehouse.");
                                         List<ItemStack> contents = unpack(stack);
                                         for (ItemStack unpackedItem : contents) {
                                             ItemStack remaining = ItemHandlerHelper.insertItemStacked(handler, unpackedItem, false);
+                                            
+                                            // --- TRACKER: Item has entered warehouse, remove it from list! ---
+                                            int amountInserted = unpackedItem.getCount() - remaining.getCount();
+                                            if (amountInserted > 0) {
+                                                updateTracker(unpackedItem.getHoverName().getString(), amountInserted, FreightTrackerModule.TrackStatus.COMPLETED);
+                                            }
+
                                             if (!remaining.isEmpty()) {
-                                                remainingList.add(remaining); // Keep what didn't fit
+                                                remainingList.add(remaining); 
                                             }
                                         }
                                     } else {
-                                        // Standard item, just insert it
                                         ItemStack remaining = ItemHandlerHelper.insertItemStacked(handler, stack, false);
                                         if (!remaining.isEmpty()) {
                                             remainingList.add(remaining);
@@ -207,7 +222,6 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                     }
                 }
                 
-                // Clear the worker's hand if they successfully dropped off the items
                 if (holdingItems.isEmpty()) {
                     job.getCitizen().getEntity().ifPresent(entity -> {
                         entity.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
@@ -264,22 +278,20 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                         if (inv != null) {
                             List<ItemStack> toPack = new ArrayList<>();
                             
-                            // Calculate max capacity based on Strength (Level 1 = 2 stacks, Level 100 = 12 stacks)
-                            // We cap it at 9 here if you are using the standard 3x3 Create package!
-                            int rawCapacity = Math.max(2, getSkillLevel(com.minecolonies.api.entity.citizen.Skill.Strength) / 8);
-                            int maxCapacity = Math.min(rawCapacity, 9); // Never exceed a box's 9-slot limit
+                            int maxCapacity = 2; 
+                            if (CCLConfig.INSTANCE.enableSkillScaling.get()) {
+                                maxCapacity += getSkillLevel(Skill.Strength) * CCLConfig.INSTANCE.packerCapacityPerStrength.get();
+                            }
+                            maxCapacity = Math.min(maxCapacity, 9);
                             
                             for (int s = 0; s < inv.getSlots(); s++) {
-                                // Stop sweeping if the box is full!
                                 if (toPack.size() >= maxCapacity) break; 
                                 
                                 ItemStack check = inv.extractItem(s, 64, true);
                                 if (!check.isEmpty()) {
                                     if (isPackage(check)) {
-                                        // If we already gathered loose items, stop and pack those first
                                         if (!toPack.isEmpty()) break;
                                         
-                                        // Otherwise, it's already a package! Export it directly.
                                         ItemStack extracted = inv.extractItem(s, 64, false);
                                         holdingItems.add(extracted);
                                         job.getCitizen().getEntity().ifPresent(entity -> {
@@ -289,13 +301,11 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                                         state = State.TO_DEPOT_EXPORT;
                                         return;
                                     } else {
-                                        // Raw item, sweep it up!
                                         toPack.add(inv.extractItem(s, 64, false));
                                     }
                                 }
                             }
                             
-                            // Pack all the collected raw stacks into ONE box
                             if (!toPack.isEmpty()) {
                                 if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[PackerAI] Packing " + toPack.size() + " excess stacks from container " + containerPos);
                                 
@@ -355,7 +365,7 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                                         }
                                     }
                                     
-                                    depotBE.addOutgoingLog("Exported: " + logName + " x" + logCount, 100);
+                                    depotBE.addOutgoingLog("OUT;Exported: " + logName + " x" + logCount, 100);
                                 }
 
                                 if (!remaining.isEmpty()) {
@@ -364,7 +374,6 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                             }
                             holdingItems = remainingList;
                             
-                            // Clear hand if all packages exported successfully
                             if (holdingItems.isEmpty()) {
                                 job.getCitizen().getEntity().ifPresent(entity -> {
                                     entity.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
@@ -381,26 +390,22 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
     private boolean isPackage(ItemStack stack) {
         if (stack.isEmpty()) return false;
 
-        //Check the item's Registry ID (Now supports Create Community Boxes!)
         ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
         if (id != null) {
             String namespace = id.getNamespace().toLowerCase();
             String path = id.getPath().toLowerCase();
             
-            //** Mod Compatability Accept both 'create' and 'ccomunityboxes' namespaces
             if ((namespace.equals("create") || namespace.equals("ccomunityboxes")) && 
                 (path.contains("package") || path.contains("box"))) {
                 return true;
             }
         }
 
-        //**Fallback: Check the actual Display Name. Mod compatability!
         String hoverName = stack.getHoverName().getString().toLowerCase();
         if (hoverName.contains("cardboard package") || hoverName.equals("package") || hoverName.contains("create:package") || hoverName.contains("box")) {
             return true;
         }
 
-        //**Ultimate Fallback: Check for Create's internal Data Component! Mod compatability!
         try {
             HolderLookup.Provider registryAccess = job.getColony().getWorld().registryAccess();
             Tag tag = stack.save(registryAccess);
@@ -465,7 +470,6 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
     private ItemStack pack(List<ItemStack> contents, String targetAddress) {
         HolderLookup.Provider registryAccess = job.getColony().getWorld().registryAccess();
 
-        // Try the 12x10 box, fallback to the standard Create box if it's missing!
         ItemStack pkg = new ItemStack(BuiltInRegistries.ITEM.get(ResourceLocation.tryParse("create:cardboard_package_12x10")));
         if (pkg.isEmpty() || pkg.getItem() == Items.AIR) {
              pkg = new ItemStack(BuiltInRegistries.ITEM.get(ResourceLocation.tryParse("create:package")));
@@ -480,7 +484,6 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
 
         ListTag contentsList = new ListTag();
         
-        // Bulk load all the stacks into the package's slots!
         for (int i = 0; i < contents.size(); i++) {
             CompoundTag entry = new CompoundTag();
             entry.put("item", contents.get(i).save(registryAccess));
@@ -532,7 +535,12 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
     
     private void moveTo(BlockPos pos) {
         job.getCitizen().getEntity().ifPresent(entity -> {
-            entity.getNavigation().moveTo(pos.getX(), pos.getY(), pos.getZ(), 1.0);
+            double baseSpeed = 1.0;
+            if (CCLConfig.INSTANCE.enableSkillScaling.get()) {
+                int athletics = getSkillLevel(Skill.Athletics);
+                baseSpeed += athletics * CCLConfig.INSTANCE.speedBoostPerAthletics.get();
+            }
+            entity.getNavigation().moveTo(pos.getX(), pos.getY(), pos.getZ(), baseSpeed);
         });
     }
     

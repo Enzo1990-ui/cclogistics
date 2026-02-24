@@ -1,8 +1,10 @@
 package com.ogtenzohd.cclogistics.colony.ai;
 
 import com.minecolonies.core.entity.ai.workers.AbstractEntityAIBasic;
+import com.minecolonies.api.entity.citizen.Skill;
 import com.ogtenzohd.cclogistics.blocks.custom.freight_depot.FreightDepotBlockEntity;
 import com.ogtenzohd.cclogistics.colony.buildings.FreightDepotBuilding;
+import com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule;
 import com.ogtenzohd.cclogistics.colony.job.LogisticsCoordinatorJob;
 import com.minecolonies.api.colony.requestsystem.requestable.Stack;
 import com.minecolonies.api.colony.buildings.IBuilding;
@@ -31,13 +33,7 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
     private static final Logger LOGGER = LogUtils.getLogger();
 
     private enum State {
-        IDLE,
-        TO_TOWNHALL,
-        AT_TOWNHALL,
-        TO_WAREHOUSE,
-        AT_WAREHOUSE,
-        TO_DEPOT,
-        AT_DEPOT
+        IDLE, TO_TOWNHALL, AT_TOWNHALL, TO_WAREHOUSE, AT_WAREHOUSE, TO_DEPOT, AT_DEPOT
     }
 
     private State state = State.IDLE;
@@ -52,10 +48,24 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
     public Class<FreightDepotBuilding> getExpectedBuildingClass() {
         return FreightDepotBuilding.class;
     }
-	
-	private int getSkillLevel(com.minecolonies.api.entity.citizen.Skill skill) {
+    
+    private int getSkillLevel(Skill skill) {
         if (job.getCitizen() == null || job.getCitizen().getCitizenSkillHandler() == null) return 1;
         return job.getCitizen().getCitizenSkillHandler().getLevel(skill);
+    }
+
+    // --- TRACKING HELPER METHOD ---
+    private void updateTracker(String itemName, int amount, FreightTrackerModule.TrackStatus status) {
+        if (job.getWorkBuilding() != null) {
+            FreightTrackerModule module = job.getWorkBuilding().getModule(FreightTrackerModule.class);
+            if (module != null) {
+                if (status == FreightTrackerModule.TrackStatus.COMPLETED) {
+                    module.removeRequest(itemName);
+                } else {
+                    module.updateRequest(itemName, amount, status);
+                }
+            }
+        }
     }
 
     public void tick() {
@@ -67,7 +77,7 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
         switch (state) {
             case IDLE:
                 if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[LogisticsAI] Starting cycle, moving to TOWNHALL");
-                setHoldingClipboard(false); //ensure empty hands
+                setHoldingClipboard(false);
                 state = State.TO_TOWNHALL;
                 break;
                 
@@ -83,7 +93,7 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                          if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[LogisticsAI] Arrived at TOWNHALL");
                          state = State.AT_TOWNHALL;
                          delay = 100; 
-                         setHoldingClipboard(true); // Pull out the clipboard!
+                         setHoldingClipboard(true); 
                     }
                 } else {
                     if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.warn("[LogisticsAI] No TownHall found! Skipping to WAREHOUSE");
@@ -101,16 +111,16 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                             if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[LogisticsAI] Delegating request processing to Depot BlockEntity logic");
                             depotBE.coordinateLogistics();
                         } else {
-                            LOGGER.error("[LogisticsAI] Failed to find Depot Block Entity at " + depotB.getPosition());
+                            if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.error("[LogisticsAI] Failed to find Depot Block Entity at " + depotB.getPosition());
                         }
                     }
                 } else {
-                     LOGGER.error("[LogisticsAI] Worker is not assigned to a Freight Depot!");
+                     if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.error("[LogisticsAI] Worker is not assigned to a Freight Depot!");
                 }
                 
-                int townhallSpeed = Math.max(20, 100 - getSkillLevel(com.minecolonies.api.entity.citizen.Skill.Athletics));
+                int townhallSpeed = Math.max(20, 100 - getSkillLevel(Skill.Athletics));
                 delay = townhallSpeed;
-				setHoldingClipboard(false); // Put the clipboard away
+                setHoldingClipboard(false); 
                 state = State.TO_WAREHOUSE;
                 break;
 
@@ -126,7 +136,7 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                         if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[LogisticsAI] Arrived at WAREHOUSE");
                         state = State.AT_WAREHOUSE;
                         delay = 100;
-                        setHoldingClipboard(true); // Pull out the clipboard!
+                        setHoldingClipboard(true); 
                     }
                 } else {
                     if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.warn("[LogisticsAI] No Warehouse found! Skipping to DEPOT");
@@ -170,12 +180,15 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                             
                             job.getCitizen().createRequest(new Stack(stack));
                             
+                            // --- TRACKER: Log the excess pickup request as "REQUESTED" (Yellow) ---
+                            updateTracker(stack.getHoverName().getString(), excess, FreightTrackerModule.TrackStatus.REQUESTED);
+                            
                             break; 
                         }
                     }
                 }
                 
-                setHoldingClipboard(false); // Put the clipboard away
+                setHoldingClipboard(false); 
                 state = State.TO_DEPOT;
                 break;
 
@@ -188,7 +201,7 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                         if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[LogisticsAI] Arrived at DEPOT");
                         state = State.AT_DEPOT;
                         delay = 200;
-                        setHoldingClipboard(true); // Pull out the clipboard!
+                        setHoldingClipboard(true); 
                     }
                 }
                 break;
@@ -197,17 +210,18 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                 if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[LogisticsAI] Resting at Depot...");
                 state = State.IDLE;
                 
-                // Base cooldown is defined in config, but reduced by Intelligence!
-                int baseCooldown = CCLConfig.INSTANCE.coordinatorCooldown.get();
-                int cooldownReduction = getSkillLevel(com.minecolonies.api.entity.citizen.Skill.Intelligence) * 2; 
-                delay = Math.max(20, baseCooldown - cooldownReduction); 
+                int baseDelay = CCLConfig.INSTANCE.coordinatorCooldown.get();
+                if (CCLConfig.INSTANCE.enableSkillScaling.get()) {
+                    int intel = getSkillLevel(Skill.Intelligence);
+                    int reduction = intel * CCLConfig.INSTANCE.cooldownReductionPerIntel.get();
+                    delay = Math.max(20, baseDelay - reduction);
+                } else {
+                    delay = baseDelay;
+                }
                 break;
         }
     }
     
-    /**
-     * Attempts to find Minecolonies' clipboard item, falling back to a vanilla book.
-     */
     private ItemStack getClipboard() {
         net.minecraft.world.item.Item item = BuiltInRegistries.ITEM.get(ResourceLocation.tryParse("minecolonies:clipboard"));
         if (item == Items.AIR) {
@@ -216,9 +230,6 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
         return new ItemStack(item);
     }
     
-    /**
-     * Makes the entity visually hold or put away the clipboard.
-     */
     private void setHoldingClipboard(boolean holding) {
         job.getCitizen().getEntity().ifPresent(entity -> {
             if (holding) {
@@ -229,12 +240,8 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
         });
     }
 
-    /**
-     * Plays a cartographer scribbling sound to simulate taking notes.
-     */
     private void playScribbleSound() {
         job.getCitizen().getEntity().ifPresent(entity -> {
-            // Adds slight pitch variation so the scribbling doesn't sound completely identical every time
             float pitch = 1.0F + (entity.level().random.nextFloat() - 0.5F) * 0.2F;
             entity.playSound(SoundEvents.VILLAGER_WORK_CARTOGRAPHER, 0.5F, pitch);
         });
@@ -262,7 +269,12 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
     
     private void moveTo(BlockPos pos) {
         job.getCitizen().getEntity().ifPresent(entity -> {
-            entity.getNavigation().moveTo(pos.getX(), pos.getY(), pos.getZ(), 1.0);
+            double baseSpeed = 1.0;
+            if (CCLConfig.INSTANCE.enableSkillScaling.get()) {
+                int athletics = getSkillLevel(Skill.Athletics);
+                baseSpeed += athletics * CCLConfig.INSTANCE.speedBoostPerAthletics.get();
+            }
+            entity.getNavigation().moveTo(pos.getX(), pos.getY(), pos.getZ(), baseSpeed);
         });
     }
     

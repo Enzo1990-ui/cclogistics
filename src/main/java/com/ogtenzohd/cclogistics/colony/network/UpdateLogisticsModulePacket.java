@@ -10,6 +10,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
+import com.ogtenzohd.cclogistics.config.CCLConfig;
 import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
@@ -34,18 +35,19 @@ public record UpdateLogisticsModulePacket(BlockPos pos, String colonyName, Strin
     public static void handle(final UpdateLogisticsModulePacket payload, final IPayloadContext context) {
         context.enqueueWork(() -> {
             Player player = context.player();
-            LOGGER.info("[Network] Received UpdateLogisticsModulePacket for Pos: " + payload.pos);
-            LOGGER.info("   -> Colony: " + payload.colonyName + ", City: " + payload.cityTarget);
-
+            if (CCLConfig.INSTANCE.debugMode.get()) {
+				LOGGER.info("[Network] Received UpdateLogisticsModulePacket for Pos: " + payload.pos);
+                LOGGER.info("   -> Colony: " + payload.colonyName + ", City: " + payload.cityTarget);
+			}
             if (player.level().getBlockEntity(payload.pos) instanceof FreightDepotBlockEntity depot) {
                 depot.setColonyName(payload.colonyName);
                 depot.setCityTarget(payload.cityTarget);
                 // No packages list to update
                 depot.setChanged();
                 player.level().sendBlockUpdated(payload.pos, depot.getBlockState(), depot.getBlockState(), 3);
-                LOGGER.info("[Network] Updated Freight Depot via Module Packet.");
+                if (CCLConfig.INSTANCE.debugMode.get())LOGGER.info("[Network] Updated Freight Depot via Module Packet.");
             } else {
-                LOGGER.warn("[Network] Failed to find FreightDepotBlockEntity at " + payload.pos);
+                if (CCLConfig.INSTANCE.debugMode.get())LOGGER.warn("[Network] Failed to find FreightDepotBlockEntity at " + payload.pos);
             }
         });
     }

@@ -3,10 +3,8 @@ package com.ogtenzohd.cclogistics.colony.job;
 import com.minecolonies.api.colony.ICitizenData;
 import com.minecolonies.api.colony.jobs.registry.JobEntry;
 import com.minecolonies.core.colony.jobs.AbstractJob;
-import com.ogtenzohd.cclogistics.colony.CCLColonyRegistries;
-import com.ogtenzohd.cclogistics.CreateColonyLogistics;
 import com.ogtenzohd.cclogistics.colony.ai.PackerAgentAI;
-import com.ogtenzohd.cclogistics.registration.CCLRegistration;
+import com.ogtenzohd.cclogistics.colony.CCLColonyRegistries;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
@@ -38,7 +36,7 @@ public class PackerAgentJob extends AbstractJob<PackerAgentAI, PackerAgentJob> {
     public CompoundTag serializeNBT(HolderLookup.Provider provider) {
         CompoundTag tag = super.serializeNBT(provider);
         if (getWorkerAI() != null) {
-            getWorkerAI().writeData(tag, provider); // Calls the new custom method!
+            getWorkerAI().writeData(tag, provider);
         }
         return tag;
     }
@@ -47,7 +45,7 @@ public class PackerAgentJob extends AbstractJob<PackerAgentAI, PackerAgentJob> {
     public void deserializeNBT(HolderLookup.Provider provider, CompoundTag nbt) {
         super.deserializeNBT(provider, nbt);
         if (getWorkerAI() != null) {
-            getWorkerAI().readData(nbt, provider); // Calls the new custom method!
+            getWorkerAI().readData(nbt, provider);
         }
     }
 

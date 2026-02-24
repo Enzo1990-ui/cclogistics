@@ -82,11 +82,12 @@ public class LogisticsControllerBlockEntity extends SmartBlockEntity implements 
         LogisticsRequestHelper.processRequests(
             colony,
             ticker,
-            activeRequestIds,
-            failedRequestIds,
+            this.activeRequestIds,
+            this.failedRequestIds,
             (request) -> PackageRouting.resolvePackageName(this.packages, request),
             null,
-			null
+            null,
+            null
         );
     }
 

@@ -13,6 +13,7 @@
     <button id="allBtn" label="All" size="40 16" pos="20 30"/>
     <button id="inBtn" label="Import" size="40 16" pos="65 30"/>
     <button id="outBtn" label="Export" size="40 16" pos="110 30"/>
+	<button id="missingBtn" label="Missing Stock" size="40 16" pos="155 30"/>
 
     <list id="logList" size="180 100" pos="10 50">
         <box size="100% 12" linewidth="1">

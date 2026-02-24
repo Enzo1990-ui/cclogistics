@@ -155,21 +155,12 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
     public void coordinateLogistics() {
         if (level == null || level.isClientSide) return;
 
-        if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[FreightDepotBE] CoordinateLogistics called.");
         StockTickerBlockEntity ticker = resolveTicker();
-        if (ticker == null) {
-            if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.warn("[FreightDepotBE] No Linked Stock Ticker! Cannot process requests.");
-            return;
-        }
+        if (ticker == null) return;
 
         IColony colony = MinecoloniesAPIProxy.getInstance().getColonyManager().getIColony(level, worldPosition);
-        if (colony == null) {
-            if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.warn("[FreightDepotBE] Not in a valid colony!");
-            return;
-        }
+        if (colony == null) return;
 
-        if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[FreightDepotBE] Ticker found at " + ticker.getBlockPos() + ". Processing Colony Requests...");
-        
         LogisticsRequestHelper.processRequests(
             colony,
             ticker,
@@ -177,8 +168,24 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
             this.failedRequestIds,
             (request) -> resolveAddress(request), 
             this.pendingIncomingLogs,
-            (stack) -> this.protectItem(stack, 30)
+            (stack) -> this.protectItem(stack, 30),
+            this::updateTracker
         );
+    }
+	
+    public void updateTracker(String itemName, int amount, com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackStatus status, String override) {
+        IBuilding b = getBuilding();
+        if (b != null) {
+            com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule module = b.getModule(com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.class);
+            if (module != null) {
+                if (status == com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackStatus.COMPLETED) {
+                    module.removeRequest(itemName);
+                } else {
+                    // Passes the override (e.g., "12 Missing") to the module
+                    module.updateRequest(itemName, amount, status, override);
+                }
+            }
+        }
     }
 	
     public void protectItem(ItemStack stack, int minutes) {
@@ -207,12 +214,12 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
     }
 
     private String resolveAddress(IRequest<?> request) {
-        if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[FreightDepotBE] Resolving address for request: " + request);
-        
+        // SILENT SKIP: Ignore self-requests entirely before logging anything to the console!
         if (request.getRequester() != null && request.getRequester().getLocation().getInDimensionLocation().equals(worldPosition)) {
-            if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("   -> Skipped (Requester is self/Depot)");
-            return null;
+            return null; 
         }
+
+        if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[FreightDepotBE] Resolving address for request: " + request);
         
         if (request.getRequest() instanceof Stack stack) {
              if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("   -> Item Requested: " + stack.getStack().getHoverName().getString());
@@ -222,8 +229,6 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
             if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("   -> Routing Import Request to My Address: " + this.colonyName);
             return this.colonyName;
         }
-        
-        if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.warn("   -> No Colony Name configured!");
         return null; 
     }
 

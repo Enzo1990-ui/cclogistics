@@ -16,11 +16,14 @@ import com.ogtenzohd.cclogistics.config.CCLConfig;
 import com.minecolonies.core.colony.buildings.modules.WorkerBuildingModule;
 import com.minecolonies.core.colony.buildings.modules.BuildingModules;
 import com.minecolonies.core.colony.buildings.moduleviews.WorkerBuildingModuleView;
-import com.ogtenzohd.cclogistics.colony.job.ClientJobView;
+import com.minecolonies.core.colony.jobs.views.DefaultJobView;
 import com.ogtenzohd.cclogistics.colony.buildings.modules.LogisticsModule;
 import com.ogtenzohd.cclogistics.colony.buildings.moduleviews.LogisticsModuleView;
 import com.ogtenzohd.cclogistics.colony.buildings.modules.LoggerModule;
 import com.ogtenzohd.cclogistics.colony.buildings.moduleviews.LoggerModuleView;
+import com.minecolonies.core.colony.buildings.modules.CraftingWorkerBuildingModule;
+import com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule;
+import com.ogtenzohd.cclogistics.colony.buildings.moduleviews.FreightTrackerModuleView;
 
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceKey;
@@ -47,7 +50,7 @@ public class CCLColonyRegistries {
 
     public static final BuildingEntry.ModuleProducer<WorkerBuildingModule, WorkerBuildingModuleView> LOGISTICS_COORDINATOR_WORK = 
         new BuildingEntry.ModuleProducer<>(
-            "logistics_coordinator_work", 
+            "logistics_coordinator_work",
             () -> new WorkerBuildingModule(LOGISTICS_JOB_ENTRY, Skill.Knowledge, Skill.Agility, false, b -> 1), 
             () -> WorkerBuildingModuleView::new
         );
@@ -59,10 +62,10 @@ public class CCLColonyRegistries {
             () -> WorkerBuildingModuleView::new
         );
 
-    public static final BuildingEntry.ModuleProducer<WorkerBuildingModule, WorkerBuildingModuleView> PACKER_AGENT_WORK = 
+    public static final BuildingEntry.ModuleProducer<CraftingWorkerBuildingModule, WorkerBuildingModuleView> PACKER_AGENT_WORK = 
         new BuildingEntry.ModuleProducer<>(
             "packer_agent_work", 
-            () -> new WorkerBuildingModule(PACKER_AGENT_JOB_ENTRY, Skill.Stamina, Skill.Agility, false, 
+            () -> new CraftingWorkerBuildingModule(PACKER_AGENT_JOB_ENTRY, Skill.Stamina, Skill.Agility, false, 
                 b -> switch (b.getBuildingLevel()) {
                     case 1 -> CCLConfig.INSTANCE.packersLevel1.get();
                     case 2 -> CCLConfig.INSTANCE.packersLevel2.get();
@@ -86,6 +89,13 @@ public class CCLColonyRegistries {
             "foremens_hut_logger",
             () -> new LoggerModule(),
             () -> LoggerModuleView::new
+        );
+		
+	public static final BuildingEntry.ModuleProducer<FreightTrackerModule, FreightTrackerModuleView> TRACKER_MODULE =
+        new BuildingEntry.ModuleProducer<>(
+            "freight_depot_tracker",
+            () -> new FreightTrackerModule(),
+            () -> FreightTrackerModuleView::new
         );
         
     private static final ResourceKey<Registry<JobEntry>> JOB_REGISTRY_KEY = 
@@ -111,7 +121,7 @@ public class CCLColonyRegistries {
         LOGISTICS_JOB_ENTRY = new JobEntry.Builder()
             .setRegistryName(logLoc)
             .setJobProducer(LogisticsCoordinatorJob::new)
-            .setJobViewProducer(() -> ClientJobView::new) 
+            .setJobViewProducer(() -> DefaultJobView::new) // <--- CHANGED TO DefaultJobView
             .createJobEntry();
         event.register(JOB_REGISTRY_KEY, logLoc, () -> LOGISTICS_JOB_ENTRY);
 
@@ -120,7 +130,7 @@ public class CCLColonyRegistries {
         FREIGHT_INSPECTOR_JOB_ENTRY = new JobEntry.Builder()
             .setRegistryName(fiLoc)
             .setJobProducer(FreightInspectorJob::new)
-            .setJobViewProducer(() -> ClientJobView::new)
+            .setJobViewProducer(() -> DefaultJobView::new) // <--- CHANGED TO DefaultJobView
             .createJobEntry();
         event.register(JOB_REGISTRY_KEY, fiLoc, () -> FREIGHT_INSPECTOR_JOB_ENTRY);
 
@@ -129,7 +139,7 @@ public class CCLColonyRegistries {
         PACKER_AGENT_JOB_ENTRY = new JobEntry.Builder()
             .setRegistryName(paLoc)
             .setJobProducer(PackerAgentJob::new)
-            .setJobViewProducer(() -> ClientJobView::new)
+            .setJobViewProducer(() -> DefaultJobView::new) // <--- CHANGED TO DefaultJobView
             .createJobEntry();
         event.register(JOB_REGISTRY_KEY, paLoc, () -> PACKER_AGENT_JOB_ENTRY);
     }
@@ -149,6 +159,7 @@ public class CCLColonyRegistries {
             .addBuildingModuleProducer(BuildingModules.MIN_STOCK)
             .addBuildingModuleProducer(BuildingModules.STATS_MODULE)
             .addBuildingModuleProducer(LOGISTICS_MODULE)
+			.addBuildingModuleProducer(TRACKER_MODULE)
             
             .createBuildingEntry();
 
@@ -167,5 +178,7 @@ public class CCLColonyRegistries {
             .createBuildingEntry();
 
         event.register(BUILDING_REGISTRY_KEY, fhLoc, () -> FOREMEN_HUT_BUILDING_ENTRY);
+		
+		
     }
 }
