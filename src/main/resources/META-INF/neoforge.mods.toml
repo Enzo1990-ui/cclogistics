@@ -5,7 +5,7 @@ issueTrackerURL="https://github.com/Enzo1990-ui/cclogistics/issues"
 
 [[mods]]
 modId="cclogistics"
-version="${file.jarVersion}"
+version="1.1.1"
 displayName="Create Colony Logistics"
 logoFile="logo.png"
 authors="OGTenzoHD"

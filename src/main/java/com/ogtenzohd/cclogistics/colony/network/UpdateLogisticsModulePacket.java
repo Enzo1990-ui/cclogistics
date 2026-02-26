@@ -35,7 +35,7 @@ public record UpdateLogisticsModulePacket(BlockPos pos, String colonyName, Strin
     public static void handle(final UpdateLogisticsModulePacket payload, final IPayloadContext context) {
         context.enqueueWork(() -> {
             Player player = context.player();
-            if (CCLConfig.INSTANCE.debugMode.get()) {
+            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) {
 				LOGGER.info("[Network] Received UpdateLogisticsModulePacket for Pos: " + payload.pos);
                 LOGGER.info("   -> Colony: " + payload.colonyName + ", City: " + payload.cityTarget);
 			}
@@ -45,9 +45,9 @@ public record UpdateLogisticsModulePacket(BlockPos pos, String colonyName, Strin
                 // No packages list to update
                 depot.setChanged();
                 player.level().sendBlockUpdated(payload.pos, depot.getBlockState(), depot.getBlockState(), 3);
-                if (CCLConfig.INSTANCE.debugMode.get())LOGGER.info("[Network] Updated Freight Depot via Module Packet.");
+                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS))LOGGER.info("[Network] Updated Freight Depot via Module Packet.");
             } else {
-                if (CCLConfig.INSTANCE.debugMode.get())LOGGER.warn("[Network] Failed to find FreightDepotBlockEntity at " + payload.pos);
+                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS))LOGGER.warn("[Network] Failed to find FreightDepotBlockEntity at " + payload.pos);
             }
         });
     }

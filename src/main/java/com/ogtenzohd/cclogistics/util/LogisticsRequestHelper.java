@@ -148,7 +148,7 @@ public class LogisticsRequestHelper {
                         }
                         
                         String successMsg = "Received " + itemToSend.getHoverName().getString();
-                        if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[CCLogistics] SUCCESSFULLY imported " + amountNeeded + "x " + itemToSend.getHoverName().getString());
+                        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCLogistics] SUCCESSFULLY imported " + amountNeeded + "x " + itemToSend.getHoverName().getString());
                         
                         if (auditLog != null) auditLog.add("IN;" + successMsg);
                         if (onImportSuccess != null) onImportSuccess.accept(itemToSend);
@@ -171,7 +171,7 @@ public class LogisticsRequestHelper {
                 }
 
             } catch (Exception e) {
-                if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.error("[CCLogistics] Error processing request", e);
+                LOGGER.error("[CCLogistics] Error processing request", e);
             }
         }
     }
@@ -200,17 +200,17 @@ public class LogisticsRequestHelper {
             try { 
                 Object minObj = getFieldByName(innerObj, "minLevel");
                 if (minObj != null) minLevel = (int) minObj;
-            } catch (Exception ignored) {}
+            } catch (Exception e) { if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.debug("[CCLogistics] Failed to get minLevel", e); }
             
             try { 
                 Object maxObj = getFieldByName(innerObj, "maxLevel");
                 if (maxObj != null) maxLevel = (int) maxObj;
-            } catch (Exception ignored) {}
+            } catch (Exception e) { if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.debug("[CCLogistics] Failed to get maxLevel", e); }
 
             Method levelCheckMethod = null;
             try { levelCheckMethod = equipmentType.getClass().getMethod(checkMethodName, ItemStack.class); } catch (Exception e) {}
-            if (levelCheckMethod == null) try { levelCheckMethod = equipmentType.getClass().getMethod("getLevel", ItemStack.class); } catch (Exception e) {}
-            if (levelCheckMethod == null) try { levelCheckMethod = equipmentType.getClass().getMethod("getMiningLevel", ItemStack.class); } catch (Exception e) {}
+            if (levelCheckMethod == null) try { levelCheckMethod = equipmentType.getClass().getMethod("getLevel", ItemStack.class); } catch (Exception e) { if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.debug("[CCLogistics] Method getLevel not found", e); }
+            if (levelCheckMethod == null) try { levelCheckMethod = equipmentType.getClass().getMethod("getMiningLevel", ItemStack.class); } catch (Exception e) { if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.debug("[CCLogistics] Method getMiningLevel not found", e); }
 
             if (levelCheckMethod == null) return ItemStack.EMPTY;
 
@@ -221,7 +221,9 @@ public class LogisticsRequestHelper {
                 try {
                     int itemTier = (int) levelCheckMethod.invoke(equipmentType, stack);
                     if (itemTier >= minLevel && itemTier <= maxLevel) candidates.add(stack);
-                } catch (Exception ignored) {}
+                } catch (Exception e) {
+                     if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.debug("[CCLogistics] Failed to invoke tier check on stack " + stack.getHoverName().getString(), e);
+                }
             }
 
             if (candidates.isEmpty()) return ItemStack.EMPTY;
@@ -238,7 +240,10 @@ public class LogisticsRequestHelper {
             });
 
             return candidates.get(0).copyWithCount(1);
-        } catch (Exception e) { return ItemStack.EMPTY; }
+        } catch (Exception e) { 
+            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.error("[CCLogistics] solveRequestByTier failed", e);
+            return ItemStack.EMPTY; 
+        }
     }
 
     private static boolean canColonyCraft(IColony colony, ItemStack stack) {
@@ -255,7 +260,9 @@ public class LogisticsRequestHelper {
                     }
                 }
             }
-        } catch (Exception e) {}
+        } catch (Exception e) {
+            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.warn("[CCLogistics] canColonyCraft failed", e);
+        }
         return false;
     }
 
@@ -265,7 +272,9 @@ public class LogisticsRequestHelper {
                 try {
                     f.setAccessible(true);
                     return f.get(target);
-                } catch (Exception ignored) {}
+                } catch (Exception e) {
+                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.warn("[CCLogistics] Failed to access field: " + name, e);
+                }
             }
         }
         return null;

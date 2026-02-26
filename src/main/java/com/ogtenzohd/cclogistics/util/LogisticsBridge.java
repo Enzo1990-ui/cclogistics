@@ -34,14 +34,14 @@ public class LogisticsBridge {
         try {
             LogisticallyLinkedBehaviour link = ticker.getBehaviour(LogisticallyLinkedBehaviour.TYPE);
             if (link == null || link.freqId == null) {
-                if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.warn("[Bridge] StockTicker has no frequency ID!");
+                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE)) LOGGER.warn("[Bridge] StockTicker has no frequency ID!");
                 return new BigItemStack(wanted, 0);
             }
 
             Collection<LogisticallyLinkedBehaviour> networkLinks = LogisticallyLinkedBehaviour.getAllPresent(link.freqId, false);
             
             if (networkLinks == null || networkLinks.isEmpty()) {
-                if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.warn("[Bridge] Network has no links for freqId: " + link.freqId);
+                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE)) LOGGER.warn("[Bridge] Network has no links for freqId: " + link.freqId);
                 return new BigItemStack(wanted, 0);
             }
 
@@ -69,7 +69,7 @@ public class LogisticsBridge {
             return new BigItemStack(wanted, (int) totalCount);
 
         } catch (Exception e) {
-            if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.error("[Bridge] Crash in checkStock", e);
+            LOGGER.error("[Bridge] Crash in checkStock", e);
             return new BigItemStack(wanted, 0);
         }
     }
@@ -109,7 +109,9 @@ public class LogisticsBridge {
                         }
                     }
                 }
-            } catch (Exception e) {}
+            } catch (Exception e) {
+                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE)) LOGGER.warn("[Bridge] Failed to count in packager", e);
+            }
         }
         return count;
     }
@@ -163,12 +165,16 @@ public class LogisticsBridge {
                                         }
                                     }
                                 }
-                            } catch (Exception e) {}
+                            } catch (Exception e) {
+                                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE)) LOGGER.warn("[Bridge] Failed to scan packager inventory", e);
+                            }
                         }
                     }
                 }
             }
-        } catch (Exception e) {}
+        } catch (Exception e) {
+            LOGGER.error("[Bridge] Failed to get network inventory", e);
+        }
         
         allItems.addAll(consolidated.values());
         return allItems;
@@ -179,16 +185,16 @@ public class LogisticsBridge {
     }
 
     public static boolean sendPackage(StockTickerBlockEntity ticker, Object token, int countNeeded, String address, PackageOrder dummyOrder) {
-        if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[Bridge] sendPackage invoked for Address: " + address);
+        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE)) LOGGER.info("[Bridge] sendPackage invoked for Address: " + address);
         
         if (!(token instanceof ItemStack stack) || stack.isEmpty()) {
-            if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.warn("[Bridge] Token is invalid or empty");
+            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE)) LOGGER.warn("[Bridge] Token is invalid or empty");
             return false;
         }
 
         CFLCompat.init();
         if (CFLCompat.cflLoaded) {
-            if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[Bridge] CFL Detected! Bypassing Native LogisticsManager...");
+            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE)) LOGGER.info("[Bridge] CFL Detected! Bypassing Native LogisticsManager...");
             LogisticallyLinkedBehaviour link = ticker.getBehaviour(LogisticallyLinkedBehaviour.TYPE);
             if (link != null && link.freqId != null) {
                  ItemStack cflStack = stack.copy();
@@ -198,7 +204,7 @@ public class LogisticsBridge {
             return false;
         }
 		
-        if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[Bridge] Native Create Detected. Forwarding to StockTicker Mixin...");
+        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE)) LOGGER.info("[Bridge] Native Create Detected. Forwarding to StockTicker Mixin...");
         ItemStack typeStack = stack.copy();
         typeStack.setCount(1);
         
@@ -210,7 +216,7 @@ public class LogisticsBridge {
             send(ticker, wrapped, address);
             return true;
         } catch (Exception e) {
-            if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.error("[Bridge] Send failed", e);
+            LOGGER.error("[Bridge] Send failed", e);
             return false;
         }
     }
@@ -220,10 +226,10 @@ public class LogisticsBridge {
             if (order instanceof PackageOrderWithCrafts packageOrder) {
                 automatedTicker.cclogistics$automatedRequest(packageOrder, address);
             } else {
-                 if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.warn("[Bridge] Order is not PackageOrderWithCrafts! Type: " + order.getClass().getName());
+                 if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE)) LOGGER.warn("[Bridge] Order is not PackageOrderWithCrafts! Type: " + order.getClass().getName());
             }
         } else {
-             if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.warn("[Bridge] Ticker does not implement IAutomatedTicker mixin!");
+             if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE)) LOGGER.warn("[Bridge] Ticker does not implement IAutomatedTicker mixin!");
         }
     }
 }

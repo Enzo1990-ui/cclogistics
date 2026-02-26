@@ -90,7 +90,7 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
 
         switch (state) {
             case IDLE:
-                if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[PackerAI] Starting cycle, moving to DEPOT IMPORT");
+                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[PackerAI] Starting cycle, moving to DEPOT IMPORT");
                 state = State.TO_DEPOT_IMPORT;
                 break;
             
@@ -103,6 +103,8 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                         state = State.AT_DEPOT_IMPORT;
                         delay = 20;
                     }
+                } else {
+                     if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.warn("[PackerAI] No Work Building assigned (Depot is null)!");
                 }
                 break;
 
@@ -111,6 +113,9 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                     BlockEntity be = job.getColony().getWorld().getBlockEntity(currentTarget);
                     if (be instanceof FreightDepotBlockEntity depotBE) {
                         IItemHandler importInv = depotBE.getImportInventory();
+                        if (importInv == null && CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) {
+                             LOGGER.warn("[PackerAI] Import Inventory is null (not linked?)");
+                        }
                         if (importInv != null) {
                             List<ItemStack> rawItemsToPack = new ArrayList<>();
                             
@@ -140,7 +145,7 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                                             updateTracker(content.getHoverName().getString(), content.getCount(), FreightTrackerModule.TrackStatus.RECEIVED);
                                         }
 
-                                        if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[PackerAI] Picked up package, moving to warehouse: " + extracted.getHoverName().getString());
+                                        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[PackerAI] Picked up package, moving to warehouse: " + extracted.getHoverName().getString());
                                         state = State.TO_WAREHOUSE;
                                         return;
                                     } else {
@@ -150,7 +155,7 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                             }
                             
                             if (!rawItemsToPack.isEmpty()) {
-                                if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[PackerAI] Found " + rawItemsToPack.size() + " loose stacks in import vault. Packing them as a fallback!");
+                                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[PackerAI] Found " + rawItemsToPack.size() + " loose stacks in import vault. Packing them as a fallback!");
                                 ItemStack fallbackPkg = pack(rawItemsToPack, ""); 
                                 holdingItems.add(fallbackPkg);
                                 job.getCitizen().getEntity().ifPresent(entity -> {
@@ -194,7 +199,7 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                                 
                                 for (ItemStack stack : holdingItems) {
                                     if (isPackage(stack)) {
-                                        if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[PackerAI] Unpacking package at warehouse.");
+                                        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[PackerAI] Unpacking package at warehouse.");
                                         List<ItemStack> contents = unpack(stack);
                                         for (ItemStack unpackedItem : contents) {
                                             ItemStack remaining = ItemHandlerHelper.insertItemStacked(handler, unpackedItem, false);
@@ -297,7 +302,7 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                                         job.getCitizen().getEntity().ifPresent(entity -> {
                                             entity.setItemInHand(InteractionHand.MAIN_HAND, extracted.copy());
                                         });
-                                        if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[PackerAI] Found pre-boxed package in excess storage, exporting directly!");
+                                        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[PackerAI] Found pre-boxed package in excess storage, exporting directly!");
                                         state = State.TO_DEPOT_EXPORT;
                                         return;
                                     } else {
@@ -307,11 +312,11 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                             }
                             
                             if (!toPack.isEmpty()) {
-                                if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[PackerAI] Packing " + toPack.size() + " excess stacks from container " + containerPos);
+                                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[PackerAI] Packing " + toPack.size() + " excess stacks from container " + containerPos);
                                 
                                 ItemStack pkg = pack(toPack, targetAddress);
                                 
-                                if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[PackerAI] Packed massive bundle for: " + targetAddress);
+                                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[PackerAI] Packed massive bundle for: " + targetAddress);
                                 holdingItems.add(pkg);
                                 
                                 job.getCitizen().getEntity().ifPresent(entity -> {
@@ -439,7 +444,7 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                             CompoundTag itemTag = entry.getCompound("item");
                             ItemStack parsed = ItemStack.parse(registryAccess, itemTag).orElse(ItemStack.EMPTY);
                             if (!parsed.isEmpty()) {
-                                if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("   -> Unpacked: " + parsed.getHoverName().getString() + " x" + parsed.getCount());
+                                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("   -> Unpacked: " + parsed.getHoverName().getString() + " x" + parsed.getCount());
                                 contents.add(parsed);
                             }
                         }
@@ -447,7 +452,7 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                 }
             }
         } catch (Exception e) {
-            if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.error("[Unpack] Error parsing Create package", e);
+            LOGGER.error("[Unpack] Error parsing Create package", e);
         }
         
         if (contents.isEmpty()) {
@@ -473,7 +478,10 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
         ItemStack pkg = new ItemStack(BuiltInRegistries.ITEM.get(ResourceLocation.tryParse("create:cardboard_package_12x10")));
         if (pkg.isEmpty() || pkg.getItem() == Items.AIR) {
              pkg = new ItemStack(BuiltInRegistries.ITEM.get(ResourceLocation.tryParse("create:package")));
-             if (pkg.isEmpty() || pkg.getItem() == Items.AIR) return ItemStack.EMPTY; 
+             if (pkg.isEmpty() || pkg.getItem() == Items.AIR) {
+                 if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.error("[PackerAI] Failed to create package item (create:package not found?)");
+                 return ItemStack.EMPTY; 
+             }
         }
 
         Tag rawTag = pkg.save(registryAccess);
@@ -534,6 +542,10 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
     }
     
     private void moveTo(BlockPos pos) {
+        if (!job.getCitizen().getEntity().isPresent()) {
+            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.warn("[PackerAI] Citizen Entity not present during moveTo!");
+            return;
+        }
         job.getCitizen().getEntity().ifPresent(entity -> {
             double baseSpeed = 1.0;
             if (CCLConfig.INSTANCE.enableSkillScaling.get()) {
@@ -545,6 +557,9 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
     }
     
     private boolean isAt(BlockPos pos) {
-        return job.getCitizen().getEntity().map(e -> e.blockPosition().closerThan(pos, 3.0)).orElse(false);
+        return job.getCitizen().getEntity().map(e -> e.blockPosition().closerThan(pos, 3.0)).orElseGet(() -> {
+            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.warn("[PackerAI] Citizen Entity not present during isAt!");
+            return false;
+        });
     }
 }

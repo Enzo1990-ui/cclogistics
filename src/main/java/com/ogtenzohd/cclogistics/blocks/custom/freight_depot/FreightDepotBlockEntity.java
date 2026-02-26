@@ -83,6 +83,7 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
         if (colony != null) {
             return colony.getServerBuildingManager().getBuilding(worldPosition);
         }
+        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.warn("[FreightDepotBE] Failed to find Colony for building at " + worldPosition);
         return null;
     }
     
@@ -142,13 +143,14 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
     public void setTickerLink(BlockPos pos) {
         this.manualTickerPos = pos;
         setChanged();
-        if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[FreightDepotBE] Manually linked to Ticker at " + pos);
+        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[FreightDepotBE] Manually linked to Ticker at " + pos);
     }
     
     private StockTickerBlockEntity resolveTicker() {
         if (manualTickerPos != null && level != null && level.getBlockEntity(manualTickerPos) instanceof StockTickerBlockEntity be) {
             return be;
         }
+        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS) && manualTickerPos != null) LOGGER.warn("[FreightDepotBE] Failed to resolve Ticker at " + manualTickerPos);
         return null; 
     }
 
@@ -159,7 +161,10 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
         if (ticker == null) return;
 
         IColony colony = MinecoloniesAPIProxy.getInstance().getColonyManager().getIColony(level, worldPosition);
-        if (colony == null) return;
+        if (colony == null) {
+            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.warn("[FreightDepotBE] CoordinateLogistics failed: Colony not found at " + worldPosition);
+            return;
+        }
 
         LogisticsRequestHelper.processRequests(
             colony,
@@ -193,7 +198,7 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
         long expireTime = level.getGameTime() + (minutes * 60 * 20); // Mins * Secs * Ticks
         protectedImports.put(stack.getItem(), expireTime);
         setChanged();
-        if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[FreightDepot] Protected " + stack.getHoverName().getString() + " from export for " + minutes + " mins.");
+        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[FreightDepot] Protected " + stack.getHoverName().getString() + " from export for " + minutes + " mins.");
     }
 
     public boolean isItemProtected(ItemStack stack) {
@@ -216,17 +221,18 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
     private String resolveAddress(IRequest<?> request) {
         // SILENT SKIP: Ignore self-requests entirely before logging anything to the console!
         if (request.getRequester() != null && request.getRequester().getLocation().getInDimensionLocation().equals(worldPosition)) {
+            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[FreightDepotBE] Ignoring self-request from: " + worldPosition);
             return null; 
         }
 
-        if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[FreightDepotBE] Resolving address for request: " + request);
+        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[FreightDepotBE] Resolving address for request: " + request);
         
         if (request.getRequest() instanceof Stack stack) {
-             if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("   -> Item Requested: " + stack.getStack().getHoverName().getString());
+             if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("   -> Item Requested: " + stack.getStack().getHoverName().getString());
         }
         
         if (this.colonyName != null && !this.colonyName.isEmpty()) {
-            if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("   -> Routing Import Request to My Address: " + this.colonyName);
+            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("   -> Routing Import Request to My Address: " + this.colonyName);
             return this.colonyName;
         }
         return null; 

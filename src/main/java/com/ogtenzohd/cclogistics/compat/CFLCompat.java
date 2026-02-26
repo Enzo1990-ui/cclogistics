@@ -29,7 +29,7 @@ public class CFLCompat {
         
         if (cflLoaded) {
             try {
-                if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[CCLogistics] Create Factory Logistics detected! Wiring up GenericLogisticsManager...");
+                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE)) LOGGER.info("[CCLogistics] Create Factory Logistics detected! Wiring up GenericLogisticsManager...");
                 
                 Class<?> bigGenericStackClass = Class.forName("ru.zznty.create_factory_abstractions.generic.support.BigGenericStack");
                 bigGenericStackOfMethod = bigGenericStackClass.getMethod("of", BigItemStack.class);
@@ -46,9 +46,9 @@ public class CFLCompat {
                         IdentifiedInventory.class, 
                         String.class);
 
-                if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[CCLogistics] CFL Reflection Wrapper initialized successfully!");
+                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE)) LOGGER.info("[CCLogistics] CFL Reflection Wrapper initialized successfully!");
             } catch (Exception e) {
-                if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.error("[CCLogistics] Failed to initialize CFL reflection! Falling back to native Create.", e);
+                LOGGER.error("[CCLogistics] Failed to initialize CFL reflection! Falling back to native Create.", e);
                 cflLoaded = false;
             }
         }
@@ -75,11 +75,11 @@ public class CFLCompat {
                     null, 
                     address);
             
-            if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[CCLogistics] Successfully pushed request to CFL GenericLogisticsManager for address: " + address);
+            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE)) LOGGER.info("[CCLogistics] Successfully pushed request to CFL GenericLogisticsManager for address: " + address);
             return true;
             
         } catch (Exception e) {
-            if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.error("[CCLogistics] CFL Package routing failed during reflection execution", e);
+            LOGGER.error("[CCLogistics] CFL Package routing failed during reflection execution", e);
             return false;
         }
     }

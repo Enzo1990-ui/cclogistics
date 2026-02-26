@@ -76,7 +76,7 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
 
         switch (state) {
             case IDLE:
-                if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[LogisticsAI] Starting cycle, moving to TOWNHALL");
+                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] Starting cycle, moving to TOWNHALL");
                 setHoldingClipboard(false);
                 state = State.TO_TOWNHALL;
                 break;
@@ -90,32 +90,32 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                     currentTarget = townHall.getPosition();
                     moveTo(currentTarget);
                     if (isAt(currentTarget)) {
-                         if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[LogisticsAI] Arrived at TOWNHALL");
+                         if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] Arrived at TOWNHALL");
                          state = State.AT_TOWNHALL;
                          delay = 100; 
                          setHoldingClipboard(true); 
                     }
                 } else {
-                    if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.warn("[LogisticsAI] No TownHall found! Skipping to WAREHOUSE");
+                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.warn("[LogisticsAI] No TownHall found! Skipping to WAREHOUSE");
                     state = State.TO_WAREHOUSE;
                 }
                 break;
 
             case AT_TOWNHALL:
-                if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[LogisticsAI] Processing requests at Town Hall...");
+                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] Processing requests at Town Hall...");
                 com.minecolonies.api.colony.buildings.IBuilding depotB = job.getWorkBuilding();
                 if (depotB instanceof FreightDepotBuilding) {
                     if (job.getColony().getWorld() != null) {
                         BlockEntity be = job.getColony().getWorld().getBlockEntity(depotB.getPosition());
                         if (be instanceof FreightDepotBlockEntity depotBE) {
-                            if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[LogisticsAI] Delegating request processing to Depot BlockEntity logic");
+                            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] Delegating request processing to Depot BlockEntity logic");
                             depotBE.coordinateLogistics();
                         } else {
-                            if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.error("[LogisticsAI] Failed to find Depot Block Entity at " + depotB.getPosition());
+                            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.error("[LogisticsAI] Failed to find Depot Block Entity at " + depotB.getPosition());
                         }
                     }
                 } else {
-                     if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.error("[LogisticsAI] Worker is not assigned to a Freight Depot!");
+                     if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.error("[LogisticsAI] Worker is not assigned to a Freight Depot!");
                 }
                 
                 int townhallSpeed = Math.max(20, 100 - getSkillLevel(Skill.Athletics));
@@ -133,19 +133,19 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                     currentTarget = warehouse.getPosition();
                     moveTo(currentTarget);
                     if (isAt(currentTarget)) {
-                        if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[LogisticsAI] Arrived at WAREHOUSE");
+                        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] Arrived at WAREHOUSE");
                         state = State.AT_WAREHOUSE;
                         delay = 100;
                         setHoldingClipboard(true); 
                     }
                 } else {
-                    if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.warn("[LogisticsAI] No Warehouse found! Skipping to DEPOT");
+                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.warn("[LogisticsAI] No Warehouse found! Skipping to DEPOT");
                     state = State.TO_DEPOT;
                 }
                 break;
 
             case AT_WAREHOUSE:
-                if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[LogisticsAI] Scanning Warehouse inventory...");
+                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] Scanning Warehouse inventory...");
                 IBuilding depot = job.getWorkBuilding();
                 if (depot != null) {
                     Map<ItemStorage, ItemStorage> allItems = new HashMap<>();
@@ -167,7 +167,7 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                     
                     int threshold = CCLConfig.INSTANCE.warehouseExcessThreshold.get();
                     
-                    if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[LogisticsAI] Scan complete. Checking for excess items (>128)...");
+                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] Scan complete. Checking for excess items (>128)...");
                     for (ItemStorage storage : allItems.keySet()) {
                         if (storage.getAmount() > threshold) {
                             int excess = storage.getAmount() - threshold;
@@ -176,7 +176,7 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                             ItemStack stack = storage.getItemStack().copy();
                             stack.setCount(excess);
                             
-                            if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[LogisticsAI] Found Excess: " + stack.getHoverName().getString() + " x" + excess + ". Creating Pickup Request.");
+                            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] Found Excess: " + stack.getHoverName().getString() + " x" + excess + ". Creating Pickup Request.");
                             
                             job.getCitizen().createRequest(new Stack(stack));
                             
@@ -198,7 +198,7 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                     currentTarget = depotWork.getPosition();
                     moveTo(currentTarget);
                     if (isAt(currentTarget)) {
-                        if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[LogisticsAI] Arrived at DEPOT");
+                        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] Arrived at DEPOT");
                         state = State.AT_DEPOT;
                         delay = 200;
                         setHoldingClipboard(true); 
@@ -207,7 +207,7 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                 break;
 
             case AT_DEPOT:
-                if (CCLConfig.INSTANCE.debugMode.get()) LOGGER.info("[LogisticsAI] Resting at Depot...");
+                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] Resting at Depot...");
                 state = State.IDLE;
                 
                 int baseDelay = CCLConfig.INSTANCE.coordinatorCooldown.get();
@@ -268,6 +268,10 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
     }
     
     private void moveTo(BlockPos pos) {
+        if (!job.getCitizen().getEntity().isPresent()) {
+            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.warn("[LogisticsAI] Citizen Entity not present during moveTo!");
+            return;
+        }
         job.getCitizen().getEntity().ifPresent(entity -> {
             double baseSpeed = 1.0;
             if (CCLConfig.INSTANCE.enableSkillScaling.get()) {
@@ -279,6 +283,9 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
     }
     
     private boolean isAt(BlockPos pos) {
-        return job.getCitizen().getEntity().map(e -> e.blockPosition().closerThan(pos, 3.0)).orElse(false);
+        return job.getCitizen().getEntity().map(e -> e.blockPosition().closerThan(pos, 3.0)).orElseGet(() -> {
+            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.warn("[LogisticsAI] Citizen Entity not present during isAt!");
+            return false;
+        });
     }
 }

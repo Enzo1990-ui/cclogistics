@@ -25,7 +25,7 @@ public abstract class StockTickerMixin implements IAutomatedTicker {
     public void cclogistics$automatedRequest(PackageOrderWithCrafts orderWrapper, String address) {
         try {
             // Only log if debug mode is enabled so it doesn't spam the server console
-            boolean isDebug = CCLConfig.INSTANCE.debugMode.get();
+            boolean isDebug = CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE);
             
             if (isDebug) {
                 cclogistics$LOGGER.info("[StockTickerMixin] Received Automated Request for Address: {}", address);
