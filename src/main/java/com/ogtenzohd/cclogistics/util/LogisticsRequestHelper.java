@@ -118,22 +118,52 @@ public class LogisticsRequestHelper {
                             try {
                                 f.setAccessible(true);
                                 Object val = f.get(innerReq);
+                                
+                                // Check 1: Is it a single ItemStack?
                                 if (val instanceof ItemStack stack && !stack.isEmpty()) {
                                     itemToSend = stack.copy();
                                     amountNeeded = stack.getCount();
                                     break;
-                                } else if (val instanceof Stack stackReq) {
+                                } 
+                                // Check 2: Is it a single MineColonies Stack object?
+                                else if (val instanceof Stack stackReq) {
                                     itemToSend = stackReq.getStack().copy();
                                     amountNeeded = stackReq.getCount();
                                     break;
+                                } 
+                                // Check 3: Is it a List of items? (Fixes ItemStackListRequest!)
+                                else if (val instanceof Collection<?> coll) {
+                                    for (Object obj : coll) {
+                                        if (obj instanceof ItemStack stackObj && !stackObj.isEmpty()) {
+                                            itemToSend = stackObj.copy();
+                                            amountNeeded = stackObj.getCount();
+                                            break;
+                                        } else if (obj instanceof Stack stackObj) {
+                                            itemToSend = stackObj.getStack().copy();
+                                            amountNeeded = stackObj.getCount();
+                                            break;
+                                        } else if (obj instanceof net.minecraft.world.item.Item itemObj) {
+                                            itemToSend = new ItemStack(itemObj, 1);
+                                            amountNeeded = 1;
+                                            break;
+                                        }
+                                    }
+                                    if (!itemToSend.isEmpty()) break; // Break out of the field loop if we found one
                                 }
                             } catch (Exception ignored) {}
                         }
                     }
                 }
 
-                if (itemToSend.isEmpty()) continue;
-                if (canColonyCraft(colony, itemToSend)) continue; 
+                if (itemToSend.isEmpty()) {
+                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.warn("   -> FAILED: Extracted item is EMPTY! Could not parse request data.");
+                    continue;
+                }
+                
+                if (canColonyCraft(colony, itemToSend)) {
+                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("   -> SKIPPED: Colony can already craft " + itemToSend.getHoverName().getString() + ". Ignoring request.");
+                    continue; 
+                }
 
                 if (trackerUpdater != null) {
                     trackerUpdater.track(itemToSend.getHoverName().getString(), amountNeeded, FreightTrackerModule.TrackStatus.REQUESTED, null);
@@ -141,20 +171,27 @@ public class LogisticsRequestHelper {
 
                 int currentStock = getStockCount(networkInventory, itemToSend);
 
+                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) {
+                    LOGGER.info("   -> Stock Check for: " + itemToSend.getHoverName().getString() + " | Needed: " + amountNeeded + " | Found in Create: " + currentStock);
+                }
+
                 if (currentStock >= amountNeeded) {
+                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("   -> Stock verified! Sending to LogisticsBridge...");
                     if (LogisticsBridge.sendPackage(ticker, itemToSend, amountNeeded, targetAddress, null)) {
                         if (trackerUpdater != null) {
                             trackerUpdater.track(itemToSend.getHoverName().getString(), amountNeeded, FreightTrackerModule.TrackStatus.ACCEPTED, null);
                         }
                         
                         String successMsg = "Received " + itemToSend.getHoverName().getString();
-                        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCLogistics] SUCCESSFULLY imported " + amountNeeded + "x " + itemToSend.getHoverName().getString());
+                        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCLogistics] COMPLETION: Successfully imported " + amountNeeded + "x " + itemToSend.getHoverName().getString());
                         
                         if (auditLog != null) auditLog.add("IN;" + successMsg);
                         if (onImportSuccess != null) onImportSuccess.accept(itemToSend);
+                    } else {
+                        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.error("   -> FAILED: LogisticsBridge.sendPackage returned false!");
                     }
                 } else {
-                    // Logic for "X Missing" or "No Stock"
+                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.warn("   -> FAILED: Not enough stock in the Create Network.");
                     String statusMessage = (currentStock == 0) ? "No Stock" : (amountNeeded - currentStock) + " Missing";
 
                     if (trackerUpdater != null) {
@@ -163,15 +200,12 @@ public class LogisticsRequestHelper {
 
                     if (auditLog != null) {
                         auditLog.add(itemToSend.getHoverName().getString() + ": " + statusMessage);
-                    }
-
-                    if (auditLog != null) {
-						auditLog.add("MISS;" + itemToSend.getHoverName().getString() + ": " + statusMessage);
+                        auditLog.add("MISS;" + itemToSend.getHoverName().getString() + ": " + statusMessage);
                     }
                 }
 
             } catch (Exception e) {
-                LOGGER.error("[CCLogistics] Error processing request", e);
+                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.error("[CCLogistics] CRASH while processing individual request!", e);
             }
         }
     }
@@ -179,7 +213,8 @@ public class LogisticsRequestHelper {
     private static int getStockCount(List<BigItemStack> networkInv, ItemStack needed) {
         int totalStock = 0;
         for (BigItemStack bis : networkInv) {
-            if (ItemStack.isSameItem(bis.stack, needed)) {
+            // Strictly checking item type to bypass hidden NBT tag mismatches
+            if (!bis.stack.isEmpty() && !needed.isEmpty() && bis.stack.getItem() == needed.getItem()) {
                 totalStock += bis.count;
             }
         }
@@ -200,17 +235,17 @@ public class LogisticsRequestHelper {
             try { 
                 Object minObj = getFieldByName(innerObj, "minLevel");
                 if (minObj != null) minLevel = (int) minObj;
-            } catch (Exception e) { if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.debug("[CCLogistics] Failed to get minLevel", e); }
+            } catch (Exception e) {}
             
             try { 
                 Object maxObj = getFieldByName(innerObj, "maxLevel");
                 if (maxObj != null) maxLevel = (int) maxObj;
-            } catch (Exception e) { if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.debug("[CCLogistics] Failed to get maxLevel", e); }
+            } catch (Exception e) {}
 
             Method levelCheckMethod = null;
             try { levelCheckMethod = equipmentType.getClass().getMethod(checkMethodName, ItemStack.class); } catch (Exception e) {}
-            if (levelCheckMethod == null) try { levelCheckMethod = equipmentType.getClass().getMethod("getLevel", ItemStack.class); } catch (Exception e) { if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.debug("[CCLogistics] Method getLevel not found", e); }
-            if (levelCheckMethod == null) try { levelCheckMethod = equipmentType.getClass().getMethod("getMiningLevel", ItemStack.class); } catch (Exception e) { if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.debug("[CCLogistics] Method getMiningLevel not found", e); }
+            if (levelCheckMethod == null) try { levelCheckMethod = equipmentType.getClass().getMethod("getLevel", ItemStack.class); } catch (Exception e) {}
+            if (levelCheckMethod == null) try { levelCheckMethod = equipmentType.getClass().getMethod("getMiningLevel", ItemStack.class); } catch (Exception e) {}
 
             if (levelCheckMethod == null) return ItemStack.EMPTY;
 
@@ -221,9 +256,7 @@ public class LogisticsRequestHelper {
                 try {
                     int itemTier = (int) levelCheckMethod.invoke(equipmentType, stack);
                     if (itemTier >= minLevel && itemTier <= maxLevel) candidates.add(stack);
-                } catch (Exception e) {
-                     if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.debug("[CCLogistics] Failed to invoke tier check on stack " + stack.getHoverName().getString(), e);
-                }
+                } catch (Exception e) {}
             }
 
             if (candidates.isEmpty()) return ItemStack.EMPTY;
@@ -241,7 +274,6 @@ public class LogisticsRequestHelper {
 
             return candidates.get(0).copyWithCount(1);
         } catch (Exception e) { 
-            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.error("[CCLogistics] solveRequestByTier failed", e);
             return ItemStack.EMPTY; 
         }
     }
@@ -260,9 +292,7 @@ public class LogisticsRequestHelper {
                     }
                 }
             }
-        } catch (Exception e) {
-            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.warn("[CCLogistics] canColonyCraft failed", e);
-        }
+        } catch (Exception e) {}
         return false;
     }
 
@@ -272,9 +302,7 @@ public class LogisticsRequestHelper {
                 try {
                     f.setAccessible(true);
                     return f.get(target);
-                } catch (Exception e) {
-                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.warn("[CCLogistics] Failed to access field: " + name, e);
-                }
+                } catch (Exception e) {}
             }
         }
         return null;

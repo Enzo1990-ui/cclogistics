@@ -219,12 +219,34 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
     }
 
     private String resolveAddress(IRequest<?> request) {
-        // SILENT SKIP: Ignore self-requests entirely before logging anything to the console!
-        if (request.getRequester() != null && request.getRequester().getLocation().getInDimensionLocation().equals(worldPosition)) {
-            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[FreightDepotBE] Ignoring self-request from: " + worldPosition);
-            return null; 
+        if (request.getRequester() != null) {
+            
+            // SECURITY LAYER 1: Is the request coming from our exact block position? (The Depot Building itself)
+            if (request.getRequester().getLocation().getInDimensionLocation().equals(worldPosition)) {
+                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[FreightDepotBE] Ignoring self-request from building position.");
+                return null; 
+            }
+            
+            // SECURITY LAYER 2: Is the requester a Citizen assigned to work at our Depot?
+            if (request.getRequester() instanceof com.minecolonies.api.colony.ICitizenData citizen) {
+                if (citizen.getWorkBuilding() != null && citizen.getWorkBuilding().getPosition().equals(worldPosition)) {
+                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[FreightDepotBE] Ignoring self-request from Depot worker: " + citizen.getName());
+                    return null;
+                }
+            }
+
+            // SECURITY LAYER 3: Is the requester one of our custom Jobs or Buildings?
+            String reqClass = request.getRequester().getClass().getSimpleName();
+            if (reqClass.contains("LogisticsCoordinator") || 
+                reqClass.contains("PackerAgent") || 
+                reqClass.contains("FreightInspector") || 
+                reqClass.contains("FreightDepot")) {
+                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[FreightDepotBE] Ignoring self-request from custom Depot class: " + reqClass);
+                return null;
+            }
         }
 
+        // If it passes the filter, process it normally!
         if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[FreightDepotBE] Resolving address for request: " + request);
         
         if (request.getRequest() instanceof Stack stack) {
@@ -235,6 +257,7 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
             if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("   -> Routing Import Request to My Address: " + this.colonyName);
             return this.colonyName;
         }
+        
         return null; 
     }
 
