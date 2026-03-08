@@ -113,25 +113,27 @@ public class LogisticsRequestHelper {
                 }
                 else {
                     Object innerReq = request.getRequest();
+					
+					// minecolonies requests are sooooooooooo difficult to understand thank god for forums!
                     if (innerReq != null) {
                         for (Field f : getAllFields(innerReq.getClass())) {
                             try {
                                 f.setAccessible(true);
                                 Object val = f.get(innerReq);
                                 
-                                // Check 1: Is it a single ItemStack?
+                                // Is it a single ItemStack?
                                 if (val instanceof ItemStack stack && !stack.isEmpty()) {
                                     itemToSend = stack.copy();
                                     amountNeeded = stack.getCount();
                                     break;
                                 } 
-                                // Check 2: Is it a single MineColonies Stack object?
+                                // Is it a single MineColonies Stack object?
                                 else if (val instanceof Stack stackReq) {
                                     itemToSend = stackReq.getStack().copy();
                                     amountNeeded = stackReq.getCount();
                                     break;
                                 } 
-                                // Check 3: Is it a List of items? (Fixes ItemStackListRequest!)
+                                // Is it a List of items? (Fixes ItemStackListRequest!)
                                 else if (val instanceof Collection<?> coll) {
                                     for (Object obj : coll) {
                                         if (obj instanceof ItemStack stackObj && !stackObj.isEmpty()) {
@@ -148,7 +150,7 @@ public class LogisticsRequestHelper {
                                             break;
                                         }
                                     }
-                                    if (!itemToSend.isEmpty()) break; // Break out of the field loop if we found one
+                                    if (!itemToSend.isEmpty()) break;
                                 }
                             } catch (Exception ignored) {}
                         }
@@ -213,7 +215,6 @@ public class LogisticsRequestHelper {
     private static int getStockCount(List<BigItemStack> networkInv, ItemStack needed) {
         int totalStock = 0;
         for (BigItemStack bis : networkInv) {
-            // Strictly checking item type to bypass hidden NBT tag mismatches
             if (!bis.stack.isEmpty() && !needed.isEmpty() && bis.stack.getItem() == needed.getItem()) {
                 totalStock += bis.count;
             }

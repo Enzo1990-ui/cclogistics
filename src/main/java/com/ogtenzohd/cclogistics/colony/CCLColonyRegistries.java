@@ -116,30 +116,30 @@ public class CCLColonyRegistries {
     }
 
     private static void registerJobs(RegisterEvent event) {
-        // 1. Logistics Coordinator
+        //Logistics Coordinator
         ResourceLocation logLoc = ResourceLocation.fromNamespaceAndPath(CCLRegistration.MODID, JOB_LOGISTICS_COORDINATOR);
         LOGISTICS_JOB_ENTRY = new JobEntry.Builder()
             .setRegistryName(logLoc)
             .setJobProducer(LogisticsCoordinatorJob::new)
-            .setJobViewProducer(() -> DefaultJobView::new) // <--- CHANGED TO DefaultJobView
+            .setJobViewProducer(() -> DefaultJobView::new) // <--- CHANGED TO DefaultJobView instead of using my own View, fixes the hireing and fireing
             .createJobEntry();
         event.register(JOB_REGISTRY_KEY, logLoc, () -> LOGISTICS_JOB_ENTRY);
 
-        // 2. Freight Inspector
+        //Freight Inspector
         ResourceLocation fiLoc = ResourceLocation.fromNamespaceAndPath(CCLRegistration.MODID, JOB_FREIGHT_INSPECTOR);
         FREIGHT_INSPECTOR_JOB_ENTRY = new JobEntry.Builder()
             .setRegistryName(fiLoc)
             .setJobProducer(FreightInspectorJob::new)
-            .setJobViewProducer(() -> DefaultJobView::new) // <--- CHANGED TO DefaultJobView
+            .setJobViewProducer(() -> DefaultJobView::new) // <--- CHANGED TO DefaultJobView^^
             .createJobEntry();
         event.register(JOB_REGISTRY_KEY, fiLoc, () -> FREIGHT_INSPECTOR_JOB_ENTRY);
 
-        // 3. Packer Agent
+        //Packer Agent
         ResourceLocation paLoc = ResourceLocation.fromNamespaceAndPath(CCLRegistration.MODID, JOB_PACKER_AGENT);
         PACKER_AGENT_JOB_ENTRY = new JobEntry.Builder()
             .setRegistryName(paLoc)
             .setJobProducer(PackerAgentJob::new)
-            .setJobViewProducer(() -> DefaultJobView::new) // <--- CHANGED TO DefaultJobView
+            .setJobViewProducer(() -> DefaultJobView::new) // <--- CHANGED TO DefaultJobView^^
             .createJobEntry();
         event.register(JOB_REGISTRY_KEY, paLoc, () -> PACKER_AGENT_JOB_ENTRY);
     }
@@ -153,7 +153,6 @@ public class CCLColonyRegistries {
             .setBuildingViewProducer(() -> FreightDepotBuildingView::new)
             .setBuildingBlock(CCLRegistration.FREIGHT_DEPOT_BLOCK.get())
             
-            // MODULES
             .addBuildingModuleProducer(LOGISTICS_COORDINATOR_WORK)
             .addBuildingModuleProducer(PACKER_AGENT_WORK)
             .addBuildingModuleProducer(BuildingModules.MIN_STOCK)

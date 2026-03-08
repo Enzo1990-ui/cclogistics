@@ -4,12 +4,14 @@ import com.ogtenzohd.cclogistics.CreateColonyLogistics;
 import com.ogtenzohd.cclogistics.blocks.custom.freight_depot.network.UpdateFreightDepotPacket;
 import com.ogtenzohd.cclogistics.blocks.custom.logistics_controller.network.ConfigureRequesterPacket;
 import com.ogtenzohd.cclogistics.blocks.custom.logistics_controller.network.SyncBuildingsPacket;
-import com.ogtenzohd.cclogistics.colony.network.UpdateLogisticsModulePacket; // Import
+import com.ogtenzohd.cclogistics.colony.network.UpdateLogisticsModulePacket;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
+
+//Thank you Curseforge for the guides
 
 public class CCLPackets {
     public static void register(final RegisterPayloadHandlersEvent event) {

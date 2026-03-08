@@ -53,6 +53,8 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
 
     private String colonyName = "Colony_1";
     private String cityTarget = "City_Storage";
+	private boolean isTrainParked = false;
+    private long lastTrainCheck = 0;
     private BlockPos manualTickerPos = null;
     
     private final Set<Object> activeRequestIds = new HashSet<>();
@@ -113,6 +115,23 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
         if (level != null && !level.isClientSide) {
             if (level.getGameTime() % 200 == 0) {
                 updateStructureInfo();
+            }
+            
+            // Train checker - 20 ticks -- configurable in future
+            if (level.getGameTime() - lastTrainCheck >= 20) {
+                lastTrainCheck = level.getGameTime();
+                boolean trainFound = checkForParkedTrain();
+                
+                if (trainFound != isTrainParked) {
+                    isTrainParked = trainFound;
+                    IBuilding b = getBuilding();
+                    if (b instanceof FreightDepotBuilding fdb) {
+                        fdb.initateBrainSwap(isTrainParked);
+                        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) {
+                            LOGGER.info("[FreightDepotBE] Train state changed! Hive Mind Resync. Parked: " + isTrainParked);
+                        }
+                    }
+                }
             }
         }
     }
@@ -186,7 +205,6 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
                 if (status == com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackStatus.COMPLETED) {
                     module.removeRequest(itemName);
                 } else {
-                    // Passes the override (e.g., "12 Missing") to the module
                     module.updateRequest(itemName, amount, status, override);
                 }
             }
@@ -221,13 +239,11 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
     private String resolveAddress(IRequest<?> request) {
         if (request.getRequester() != null) {
             
-            // SECURITY LAYER 1: Is the request coming from our exact block position? (The Depot Building itself)
             if (request.getRequester().getLocation().getInDimensionLocation().equals(worldPosition)) {
                 if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[FreightDepotBE] Ignoring self-request from building position.");
                 return null; 
             }
             
-            // SECURITY LAYER 2: Is the requester a Citizen assigned to work at our Depot?
             if (request.getRequester() instanceof com.minecolonies.api.colony.ICitizenData citizen) {
                 if (citizen.getWorkBuilding() != null && citizen.getWorkBuilding().getPosition().equals(worldPosition)) {
                     if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[FreightDepotBE] Ignoring self-request from Depot worker: " + citizen.getName());
@@ -235,7 +251,6 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
                 }
             }
 
-            // SECURITY LAYER 3: Is the requester one of our custom Jobs or Buildings?
             String reqClass = request.getRequester().getClass().getSimpleName();
             if (reqClass.contains("LogisticsCoordinator") || 
                 reqClass.contains("PackerAgent") || 
@@ -246,7 +261,6 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
             }
         }
 
-        // If it passes the filter, process it normally!
         if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[FreightDepotBE] Resolving address for request: " + request);
         
         if (request.getRequest() instanceof Stack stack) {
@@ -288,6 +302,22 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
         List<String> clipboard = new ArrayList<>(this.pendingOutgoingLogs);
         this.pendingOutgoingLogs.clear(); 
         return clipboard;
+    }
+	
+	private boolean checkForParkedTrain() {
+        if (level == null) return false;
+        
+        net.minecraft.world.phys.AABB searchArea = new net.minecraft.world.phys.AABB(worldPosition).inflate(8.0);
+        
+        java.util.List<com.simibubi.create.content.trains.entity.CarriageContraptionEntity> trains = 
+            level.getEntitiesOfClass(com.simibubi.create.content.trains.entity.CarriageContraptionEntity.class, searchArea);
+        
+        for (var train : trains) {
+            if (train.getDeltaMovement().lengthSqr() < 0.01) {
+                return true; 
+            }
+        }
+        return false;
     }
 
 

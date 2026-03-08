@@ -4,23 +4,19 @@ import net.minecraft.util.RandomSource;
 
 public class TypoGenerator {
 
-    private static final String[][] PHONETIC_SWAPS = {
+    private static final String[][] PHONETIC_MISTAKES = { // https://phonetic-spelling.com/ was a godsend
         {"c", "k"}, {"k", "c"}, {"s", "z"}, {"z", "s"}, {"ph", "f"}, {"f", "ph"},
         {"tion", "shun"}, {"sion", "shun"}, {"ght", "te"}, {"ea", "ee"}, {"ee", "ea"},
         {"oo", "u"}, {"u", "oo"}, {"ou", "ow"}, {"ow", "ou"}, {"ie", "ei"}, {"ei", "ie"}
     };
 
-    /**
-     * Attempts to misspell the item name based on the citizen's intelligence.
-     */
     public static String generateSpellingMistake(String originalText, int intelligence, int baseChance, RandomSource rand) {
         if (originalText == null || originalText.length() <= 3) return originalText;
 
-        // Calculate chance PER LETTER. 
+        // CHANCE PER LETTER. - maybe a bit extreme but its more fun! 
         int mistakeChancePerLetter = Math.max(1, baseChance - (intelligence * 3));
         int mistakesToMake = 0;
         
-        // 1. FLIP THE COIN FOR EVERY LETTER IN THE WORD
         for (int i = 0; i < originalText.length(); i++) {
             if (rand.nextInt(100) < mistakeChancePerLetter) {
                 mistakesToMake++; 
@@ -31,52 +27,51 @@ public class TypoGenerator {
 
         StringBuilder sb = new StringBuilder(originalText);
 
-        // 2. APPLY A MISTAKE FOR EVERY "HEADS" ROLLED
         for (int i = 0; i < mistakesToMake; i++) {
             if (sb.length() <= 3) break; 
 
-            int severityType;
-            if (intelligence < 5) severityType = rand.nextInt(4);
-            else if (intelligence < 12) severityType = 1 + rand.nextInt(3);
-            else severityType = 3;
+            int howBad;
+            if (intelligence < 5) howBad = rand.nextInt(4);
+            else if (intelligence < 12) howBad = 1 + rand.nextInt(3);
+            else howBad = 3;
 
-            switch (severityType) {
-                case 0: // PHONETIC (Sound it out)
-                    String[] swap = PHONETIC_SWAPS[rand.nextInt(PHONETIC_SWAPS.length)];
+            switch (howBad) {
+                case 0:
+                    String[] swap = PHONETIC_MISTAKES[rand.nextInt(PHONETIC_MISTAKES.length)];
                     int index = sb.toString().toLowerCase().indexOf(swap[0]);
                     if (index > 0) { 
                         sb.replace(index, index + swap[0].length(), swap[1]);
                     } else {
-                        applyMechanicalTypo(sb, rand); // Fallback
+                        applyTypo(sb, rand);
                     }
                     break;
 
-                case 1: // VOWEL CONFUSION
+                case 1:
                     int vIndex = 1 + rand.nextInt(sb.length() - 2);
-                    boolean foundVowel = false;
+                    boolean vowelChange = false;
                     for(int v = vIndex; v < sb.length() - 1; v++) {
                         if ("aeiou".indexOf(Character.toLowerCase(sb.charAt(v))) != -1) {
                             sb.setCharAt(v, "aeiou".charAt(rand.nextInt(5)));
-                            foundVowel = true;
+                            vowelChange = true;
                             break;
                         }
                     }
-                    if (!foundVowel) applyMechanicalTypo(sb, rand);
+                    if (!vowelChange) applyTypo(sb, rand);
                     break;
 
-                case 2: // CONSONANT MISTAKE (Double or drop)
+                case 2:
                     int cIndex = 1 + rand.nextInt(sb.length() - 2);
                     char c = sb.charAt(cIndex);
                     if ("aeiou ".indexOf(Character.toLowerCase(c)) == -1) {
                         if (c == sb.charAt(cIndex + 1)) sb.deleteCharAt(cIndex); 
                         else sb.insert(cIndex, c); 
                     } else {
-                        applyMechanicalTypo(sb, rand);
+                        applyTypo(sb, rand);
                     }
                     break;
 
-                case 3: // MECHANICAL TYPO (Fat fingers)
-                    applyMechanicalTypo(sb, rand);
+                case 3:
+                    applyTypo(sb, rand);
                     break;
             }
         }
@@ -84,7 +79,7 @@ public class TypoGenerator {
         return sb.toString();
     }
 
-    private static void applyMechanicalTypo(StringBuilder sb, RandomSource rand) {
+    private static void applyTypo(StringBuilder sb, RandomSource rand) {
         if (sb.length() <= 3) return;
         int idx = 1 + rand.nextInt(sb.length() - 2);
         if (rand.nextBoolean()) { 

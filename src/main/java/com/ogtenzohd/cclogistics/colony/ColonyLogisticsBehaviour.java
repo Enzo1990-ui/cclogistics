@@ -16,7 +16,7 @@ public class ColonyLogisticsBehaviour extends BlockEntityBehaviour {
     private UUID freqId;
     
     public ColonyLogisticsBehaviour(FreightDepotBlockEntity te) {
-        super(null); // Pass null because we manually handle the TE reference
+        super(null);
         this.depot = te;
     }
 
@@ -28,7 +28,6 @@ public class ColonyLogisticsBehaviour extends BlockEntityBehaviour {
     public void setNetworkId(UUID id) {
         this.freqId = id;
         depot.setChanged();
-        // Force a block update to sync data to client
         if (depot.getLevel() != null) {
             depot.getLevel().sendBlockUpdated(depot.getBlockPos(), depot.getBlockState(), depot.getBlockState(), 3);
         }
@@ -37,8 +36,6 @@ public class ColonyLogisticsBehaviour extends BlockEntityBehaviour {
     public UUID getNetworkId() {
         return freqId;
     }
-
-    // --- UPDATED FOR 1.21 (Added HolderLookup.Provider) ---
 
     @Override
     public void write(CompoundTag nbt, HolderLookup.Provider provider, boolean clientPacket) {

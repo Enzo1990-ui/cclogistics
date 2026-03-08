@@ -12,6 +12,13 @@ import org.jetbrains.annotations.NotNull;
 
 public class PackerAgentJob extends AbstractJob<PackerAgentAI, PackerAgentJob> {
 
+    //THE ROLES -- Bigger Brains
+    public enum PackerRole {
+        UNPACKING_IMPORT, PACKING_EXPORT, UNLOADING_TRAIN, LOADING_TRAIN, IDLE
+    }
+    
+    private PackerRole currentRole = PackerRole.UNPACKING_IMPORT;
+
     public PackerAgentJob(ICitizenData citizenData) {
         super(citizenData);
         this.setRegistryEntry(CCLColonyRegistries.PACKER_AGENT_JOB_ENTRY);
@@ -20,6 +27,19 @@ public class PackerAgentJob extends AbstractJob<PackerAgentAI, PackerAgentJob> {
     public PackerAgentJob(ICitizenData citizenData, JobEntry entry) {
         super(citizenData);
         this.setRegistryEntry(entry);
+    }
+
+    public PackerRole getRole() { 
+        return currentRole; 
+    }
+
+    public void setRole(PackerRole role) { 
+        if (this.currentRole != role) {
+            this.currentRole = role;
+            if (this.getWorkerAI() != null) {
+                this.getWorkerAI().resetStateForNewRole(); 
+            }
+        }
     }
 
     public ResourceLocation getModel() {
@@ -35,6 +55,7 @@ public class PackerAgentJob extends AbstractJob<PackerAgentAI, PackerAgentJob> {
     @Override
     public CompoundTag serializeNBT(HolderLookup.Provider provider) {
         CompoundTag tag = super.serializeNBT(provider);
+        tag.putInt("PackerRole", currentRole.ordinal()); // Save Role
         if (getWorkerAI() != null) {
             getWorkerAI().writeData(tag, provider);
         }
@@ -44,6 +65,9 @@ public class PackerAgentJob extends AbstractJob<PackerAgentAI, PackerAgentJob> {
     @Override
     public void deserializeNBT(HolderLookup.Provider provider, CompoundTag nbt) {
         super.deserializeNBT(provider, nbt);
+        if (nbt.contains("PackerRole")) {
+            currentRole = PackerRole.values()[nbt.getInt("PackerRole")]; // Load Role
+        }
         if (getWorkerAI() != null) {
             getWorkerAI().readData(nbt, provider);
         }

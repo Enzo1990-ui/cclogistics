@@ -5,8 +5,9 @@
     <text id="title" size="190 12" pos="20 15" color="black" label="Active Freight Requests"/>
     
     <list id="requestList" size="170 185" pos="10 35">
-        <box size="100% 12" linewidth="1">
-            <text id="requestText" size="100% 12" pos="2 0" color="black"/>
+        <box size="100% 24" linewidth="1">
+            <text id="requestText" size="100% 10" pos="2 2" color="black"/>
+            <text id="statusText" size="100% 10" pos="2 12" color="black"/>
         </box>
     </list>
 </window>

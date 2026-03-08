@@ -42,23 +42,33 @@ public class FreightTrackerWindow extends AbstractModuleWindow<FreightTrackerMod
                 if (index < 0 || index >= requests.size()) return;
                 
                 FreightTrackerModule.TrackedRequest req = requests.get(index);
-                Text text = rowPane.findPaneOfTypeByID("requestText", Text.class);
+                Text itemText = rowPane.findPaneOfTypeByID("requestText", Text.class);
+                Text statusText = rowPane.findPaneOfTypeByID("statusText", Text.class);
                 
-                if (text != null) {
-                    // Build the base text: "64x Oak Log - "
-                    MutableComponent display = Component.literal(req.amount + "x " + req.itemName + " - ");
+                if (itemText != null && statusText != null) {
+                    // Truncate the item name -- Bug fix
+                    String shortItemName = req.itemName.length() > 20 ? req.itemName.substring(0, 17) + "..." : req.itemName;
                     
-                    // Build the colored status: "[Requested]" in Yellow, etc.
-                    MutableComponent statusText = Component.literal("[" + req.status.displayName + "]")
-                                                           .withStyle(req.status.color);
+                    // Top line: Black text, "64x Item Name"
+                    itemText.setText(Component.literal(req.amount + "x " + shortItemName).withStyle(net.minecraft.ChatFormatting.BLACK));
                     
-                    text.setText(display.append(statusText));
+                    // Add symbols because i found out i can...
+                    String symbol = "• ";
+                    String statusName = req.status.displayName;
+                    if (statusName.contains("No Stock") || statusName.contains("Failed")) {
+                        symbol = "✖ ";
+                    } else if (statusName.contains("Accepted") || statusName.contains("Success")) {
+                        symbol = "✔ ";
+                    } else if (statusName.contains("Transit") || statusName.contains("Routing")) {
+                        symbol = "➔ ";
+                    }
+
+                    statusText.setText(Component.literal(symbol + statusName).withStyle(req.status.color));
                 }
             }
         });
     }
 
-    // Auto-refresh the list while the GUI is open if data changes!
     @Override
     public void onUpdate() {
         super.onUpdate();

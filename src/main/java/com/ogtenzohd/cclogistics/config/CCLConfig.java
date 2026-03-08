@@ -13,7 +13,7 @@ public class CCLConfig {
 
     public final ModConfigSpec.EnumValue<DebugLevel> debugLevel;
     @Deprecated
-    public final ModConfigSpec.BooleanValue debugMode;
+    //public final ModConfigSpec.BooleanValue debugMode;
     public final ModConfigSpec.IntValue coordinatorCooldown;
     public final ModConfigSpec.IntValue warehouseExcessThreshold;
     
@@ -38,7 +38,7 @@ public class CCLConfig {
     }
 
     public boolean shouldDebug(DebugLevel level) {
-        if (debugMode.get()) return true;
+        //if (debugMode.get()) return true;
         if (debugLevel.get() == DebugLevel.ALL) return true;
         if (debugLevel.get() == DebugLevel.NONE) return false;
         return debugLevel.get() == level;
@@ -50,10 +50,10 @@ public class CCLConfig {
                 .comment("Set the debug logging level. Options: NONE, LOGISTICS, BRIDGE, CITIZENS, ALL. Default: NONE")
                 .defineEnum("debugLevel", DebugLevel.NONE);
         
-        debugMode = builder
-                .comment("Enable verbose debug logging for Logistics Coordinator and Freight Depot. (Deprecated: Use debugLevel instead)")
-                .define("debugMode", false);
-        builder.pop();
+        //debugMode = builder
+        //        .comment("Enable verbose debug logging for Logistics Coordinator and Freight Depot. (Deprecated: Use debugLevel instead)")
+        //        .define("debugMode", false);
+        //builder.pop();
         
         builder.push("General");
         coordinatorCooldown = builder

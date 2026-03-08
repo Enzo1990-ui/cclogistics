@@ -186,7 +186,6 @@ public class LogisticsBridge {
     }
 
     private static boolean isSameItem(ItemStack a, ItemStack b) {
-        // Checking item type directly to bypass hidden NBT tag mismatches
         return !a.isEmpty() && !b.isEmpty() && a.getItem() == b.getItem();
     }
 

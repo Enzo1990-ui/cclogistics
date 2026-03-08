@@ -18,7 +18,7 @@ public class LoggerWindow extends AbstractModuleWindow<LoggerModuleView> {
     private final Button allBtn;
     private final Button inBtn;
     private final Button outBtn;
-    private final Button missingBtn; // NEW
+    private final Button missingBtn;
     private final LoggerModuleView moduleView; 
 
     public LoggerWindow(LoggerModuleView moduleView) {
@@ -92,7 +92,7 @@ public class LoggerWindow extends AbstractModuleWindow<LoggerModuleView> {
                 if (index < 0 || index >= logs.size()) return;
                 String log = logs.get(index);
                 
-                // NEW: Slice off the hidden prefix so the player doesn't see "IN;" or "MISS;"
+                //cut off the hidden prefix so the player doesn't see "IN;" or "MISS;"
                 String displayLog = log;
                 if (log.contains(";")) {
                     displayLog = log.split(";", 2)[1];
