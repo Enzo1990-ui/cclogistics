@@ -504,39 +504,9 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
 
     // [PackerAI SCOUT] >>> EXACT VAULT PATH FOUND: contraption.storageProxy -> method:getAllItems() with 92160 slots! <<< FINALLY FOUND IT!
     private IItemHandler getContraptionInventory(CarriageContraptionEntity train) {
-        if (train == null || train.getContraption() == null) return null;
-        Object contraption = train.getContraption();
-        
-        try {
-            java.lang.reflect.Field proxyField = null;
-            Class<?> clazz = contraption.getClass();
-            while (clazz != null && clazz != Object.class) {
-                try {
-                    proxyField = clazz.getDeclaredField("storageProxy");
-                    break;
-                } catch (NoSuchFieldException e) {
-                    clazz = clazz.getSuperclass(); 
-                }
-            }
-            
-            if (proxyField != null) {
-                proxyField.setAccessible(true);
-                Object proxyObj = proxyField.get(contraption);
-                
-                if (proxyObj != null) {
-                    java.lang.reflect.Method getItemsMethod = proxyObj.getClass().getMethod("getAllItems");
-                    getItemsMethod.setAccessible(true);
-                    Object handler = getItemsMethod.invoke(proxyObj);
-                    
-                    if (handler instanceof IItemHandler) {
-                        return (IItemHandler) handler;
-                    }
-                }
-            }
-        } catch (Exception e) {
-        }
-        return null;
-    }
+    if (train == null) return null;
+    return train.getCapability(net.neoforged.neoforge.capabilities.Capabilities.ItemHandler.ENTITY);
+	}
 
     // Picks a random tagged block so they dont try kill each other by pushing each other in front of the train--- RIP Dorethy!
     private BlockPos findSafePlatformSpot(CarriageContraptionEntity train) {

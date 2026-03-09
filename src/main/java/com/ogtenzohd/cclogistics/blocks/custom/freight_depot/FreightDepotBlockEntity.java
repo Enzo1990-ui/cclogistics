@@ -4,7 +4,6 @@ import com.ogtenzohd.cclogistics.blocks.SmartColonyBlockEntity;
 import com.ogtenzohd.cclogistics.colony.buildings.FreightDepotBuilding;
 import com.ogtenzohd.cclogistics.config.CCLConfig;
 import com.ogtenzohd.cclogistics.registration.CCLRegistration;
-import com.ogtenzohd.cclogistics.util.LogisticsRequestHelper;
 import com.ogtenzohd.cclogistics.colony.ColonyLogisticsBehaviour;
 
 import com.minecolonies.api.colony.IColony;
@@ -62,6 +61,7 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
     private final List<String> pendingIncomingLogs = new ArrayList<>();
     private final List<String> pendingOutgoingLogs = new ArrayList<>();
     private final Map<Item, Long> protectedImports = new HashMap<>();
+	private final List<com.ogtenzohd.cclogistics.colony.ai.LogisticsCoordinatorAI.ManifestEntry> cacheA = new ArrayList<>();
 
     private BlockPos importVaultPos;
     private BlockPos exportVaultPos;
@@ -113,6 +113,11 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
     public void tick() {
         super.tick(); 
         if (level != null && !level.isClientSide) {
+            
+            if (level.getGameTime() % 100 == 0) {
+                coordinateLogistics();
+            }
+            
             if (level.getGameTime() % 200 == 0) {
                 updateStructureInfo();
             }
@@ -174,28 +179,41 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
     }
 
     public void coordinateLogistics() {
-        if (level == null || level.isClientSide) return;
+		if (level == null || level.isClientSide) return;
 
-        StockTickerBlockEntity ticker = resolveTicker();
-        if (ticker == null) return;
+		StockTickerBlockEntity ticker = resolveTicker();
+		if (ticker == null) return;
 
-        IColony colony = MinecoloniesAPIProxy.getInstance().getColonyManager().getIColony(level, worldPosition);
-        if (colony == null) {
-            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.warn("[FreightDepotBE] CoordinateLogistics failed: Colony not found at " + worldPosition);
-            return;
-        }
+		IColony colony = MinecoloniesAPIProxy.getInstance().getColonyManager().getIColony(level, worldPosition);
+		if (colony == null) return;
 
-        LogisticsRequestHelper.processRequests(
-            colony,
-            ticker,
-            this.activeRequestIds,
-            this.failedRequestIds,
-            (request) -> resolveAddress(request), 
-            this.pendingIncomingLogs,
-            (stack) -> this.protectItem(stack, 30),
-            this::updateTracker
-        );
-    }
+		com.simibubi.create.content.logistics.packagerLink.LogisticallyLinkedBehaviour link = ticker.getBehaviour(com.simibubi.create.content.logistics.packagerLink.LogisticallyLinkedBehaviour.TYPE);
+		if (link == null || link.freqId == null) return;
+
+		com.simibubi.create.content.logistics.packager.InventorySummary summary = com.simibubi.create.content.logistics.packagerLink.LogisticsManager.getSummaryOfNetwork(link.freqId, false);
+
+		java.util.Set<Object> currentActiveIds = new java.util.HashSet<>();
+
+		for (IRequest<?> request : com.ogtenzohd.cclogistics.util.LogisticsRequestHelper.getRequests(colony)) {
+			currentActiveIds.add(request.getId());
+			if (activeRequestIds.contains(request.getId())) continue;
+	
+			if (request.getRequest() instanceof Stack stackReq) {
+				ItemStack requestedStack = stackReq.getStack();
+				
+				if (summary.getCountOf(requestedStack) >= requestedStack.getCount()) {
+					String address = resolveAddress(request);
+					if (address != null) {
+						cacheA.add(new com.ogtenzohd.cclogistics.colony.ai.LogisticsCoordinatorAI.ManifestEntry(requestedStack.copy(), address));
+						activeRequestIds.add(request.getId());
+						setChanged();
+						updateTracker(requestedStack.getHoverName().getString(), requestedStack.getCount(), com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackStatus.REQUESTED, "Create Network");
+					}
+				}
+			}
+		}
+		activeRequestIds.retainAll(currentActiveIds); 
+	}
 	
     public void updateTracker(String itemName, int amount, com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackStatus status, String override) {
         IBuilding b = getBuilding();
@@ -325,6 +343,17 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
     public Component getDisplayName() {
         return Component.translatable("block.cclogistics.freight_depot");
     }
+	
+	public List<com.ogtenzohd.cclogistics.colony.ai.LogisticsCoordinatorAI.ManifestEntry> getAndClearCacheA() {
+		List<com.ogtenzohd.cclogistics.colony.ai.LogisticsCoordinatorAI.ManifestEntry> copy = new ArrayList<>(this.cacheA);
+		this.cacheA.clear();
+		setChanged();
+		return copy;
+	}
+
+	public StockTickerBlockEntity getStockTicker() {
+		return resolveTicker();
+	}
 
     @Override
     public AbstractContainerMenu createMenu(int id, Inventory inv, Player player) {
@@ -355,6 +384,15 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
             protectionList.add(entryTag);
         }
         tag.put("ProtectedItems", protectionList);
+		
+		ListTag cacheAList = new ListTag();
+		for (com.ogtenzohd.cclogistics.colony.ai.LogisticsCoordinatorAI.ManifestEntry entry : cacheA) {
+			CompoundTag entryTag = new CompoundTag();
+			entryTag.put("Item", entry.item.save(provider));
+			entryTag.putString("Address", entry.address);
+			cacheAList.add(entryTag);
+		}
+		tag.put("CacheA", cacheAList);
     }
     
     @Override
@@ -380,5 +418,17 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
                 }
             }
         }
+		if (tag.contains("CacheA")) {
+			cacheA.clear();
+			ListTag list = tag.getList("CacheA", Tag.TAG_COMPOUND);
+			for (int i = 0; i < list.size(); i++) {
+				CompoundTag entryTag = list.getCompound(i);
+				ItemStack item = ItemStack.parse(provider, entryTag.getCompound("Item")).orElse(ItemStack.EMPTY);
+				String address = entryTag.getString("Address");
+				if (!item.isEmpty()) {
+					cacheA.add(new com.ogtenzohd.cclogistics.colony.ai.LogisticsCoordinatorAI.ManifestEntry(item, address));
+				}
+			}
+		}
     }
 }

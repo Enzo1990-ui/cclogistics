@@ -7,8 +7,8 @@ import com.ogtenzohd.cclogistics.network.CCLPackets;
 import com.ogtenzohd.cclogistics.blocks.custom.logistics_controller.network.SyncBuildingsPacket; 
 import com.ogtenzohd.cclogistics.util.BuildingRoutingEntry;
 import com.ogtenzohd.cclogistics.blocks.custom.logistics_controller.logic.PackageRouting;
-import com.ogtenzohd.cclogistics.registration.CCLRegistration;
 import com.ogtenzohd.cclogistics.util.LogisticsRequestHelper;
+import com.ogtenzohd.cclogistics.registration.CCLRegistration;
 import com.simibubi.create.content.logistics.stockTicker.StockTickerBlockEntity;
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
@@ -69,27 +69,37 @@ public class LogisticsControllerBlockEntity extends SmartBlockEntity implements 
     }
 
     private void performRequest() {
-        if (tickerLink == null) return;
-        
-        if (!(level.getBlockEntity(tickerLink) instanceof StockTickerBlockEntity ticker)) {
-            return;
-        }
+		if (tickerLink == null || level == null || level.isClientSide) return;
+    
+		if (!(level.getBlockEntity(tickerLink) instanceof StockTickerBlockEntity ticker)) return;
 
-        IColony colony = MinecoloniesAPIProxy.getInstance().getColonyManager().getIColony(level, worldPosition);
-        
-        if (colony == null) return;
+		IColony colony = MinecoloniesAPIProxy.getInstance().getColonyManager().getIColony(level, worldPosition);
+		if (colony == null) return;
+	
+		com.simibubi.create.content.logistics.packagerLink.LogisticallyLinkedBehaviour link = ticker.getBehaviour(com.simibubi.create.content.logistics.packagerLink.LogisticallyLinkedBehaviour.TYPE);
+		if (link == null || link.freqId == null) return;
 
-        LogisticsRequestHelper.processRequests(
-            colony,
-            ticker,
-            this.activeRequestIds,
-            this.failedRequestIds,
-            (request) -> PackageRouting.resolvePackageName(this.packages, request),
-            null,
-            null,
-            null
-        );
-    }
+		com.simibubi.create.content.logistics.packager.InventorySummary summary = com.simibubi.create.content.logistics.packagerLink.LogisticsManager.getSummaryOfNetwork(link.freqId, false);
+
+		java.util.Set<Object> currentActiveIds = new java.util.HashSet<>();
+	
+		for (com.minecolonies.api.colony.requestsystem.request.IRequest<?> request : com.ogtenzohd.cclogistics.util.LogisticsRequestHelper.getRequests(colony)) {
+			currentActiveIds.add(request.getId());
+			if (activeRequestIds.contains(request.getId())) continue;
+	
+			String address = PackageRouting.resolvePackageName(this.packages, request);
+			
+			if (address != null && request.getRequest() instanceof com.minecolonies.api.colony.requestsystem.requestable.Stack stackReq) {
+				net.minecraft.world.item.ItemStack requestedStack = stackReq.getStack();
+				
+				if (summary.getCountOf(requestedStack) >= requestedStack.getCount()) {
+					boolean sent = com.ogtenzohd.cclogistics.util.LogisticsBridge.sendPackage(ticker, requestedStack.copy(), requestedStack.getCount(), address, null);
+					if (sent) activeRequestIds.add(request.getId());
+				}
+			}
+		}
+		activeRequestIds.retainAll(currentActiveIds);
+	}
 
     public void setPackages(List<BuildingRoutingEntry> packages) {
         this.packages = packages;
