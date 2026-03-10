@@ -12,6 +12,10 @@ import com.ogtenzohd.cclogistics.registration.CCLRegistration;
 import com.simibubi.create.content.logistics.stockTicker.StockTickerBlockEntity;
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
+import com.simibubi.create.content.logistics.packager.InventorySummary;
+import com.simibubi.create.content.logistics.packagerLink.LogisticsManager;
+import com.simibubi.create.content.logistics.packagerLink.LogisticallyLinkedBehaviour;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -30,6 +34,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class LogisticsControllerBlockEntity extends SmartBlockEntity implements MenuProvider {
@@ -69,36 +74,33 @@ public class LogisticsControllerBlockEntity extends SmartBlockEntity implements 
     }
 
     private void performRequest() {
-		if (tickerLink == null || level == null || level.isClientSide) return;
-    
-		if (!(level.getBlockEntity(tickerLink) instanceof StockTickerBlockEntity ticker)) return;
+    if (tickerLink == null || level == null || level.isClientSide) return;
+    if (!(level.getBlockEntity(tickerLink) instanceof StockTickerBlockEntity ticker)) return;
+    IColony colony = MinecoloniesAPIProxy.getInstance().getColonyManager().getIColony(level, worldPosition);
+    if (colony == null) return;
 
-		IColony colony = MinecoloniesAPIProxy.getInstance().getColonyManager().getIColony(level, worldPosition);
-		if (colony == null) return;
-	
-		com.simibubi.create.content.logistics.packagerLink.LogisticallyLinkedBehaviour link = ticker.getBehaviour(com.simibubi.create.content.logistics.packagerLink.LogisticallyLinkedBehaviour.TYPE);
-		if (link == null || link.freqId == null) return;
+    com.simibubi.create.content.logistics.packager.InventorySummary summary = 
+        com.simibubi.create.content.logistics.packagerLink.LogisticsManager.getSummaryOfNetwork(
+            ticker.getBehaviour(com.simibubi.create.content.logistics.packagerLink.LogisticallyLinkedBehaviour.TYPE).freqId, false);
 
-		com.simibubi.create.content.logistics.packager.InventorySummary summary = com.simibubi.create.content.logistics.packagerLink.LogisticsManager.getSummaryOfNetwork(link.freqId, false);
+    Set<Object> currentIds = new HashSet<>();
 
-		java.util.Set<Object> currentActiveIds = new java.util.HashSet<>();
-	
-		for (com.minecolonies.api.colony.requestsystem.request.IRequest<?> request : com.ogtenzohd.cclogistics.util.LogisticsRequestHelper.getRequests(colony)) {
-			currentActiveIds.add(request.getId());
-			if (activeRequestIds.contains(request.getId())) continue;
-	
-			String address = PackageRouting.resolvePackageName(this.packages, request);
-			
-			if (address != null && request.getRequest() instanceof com.minecolonies.api.colony.requestsystem.requestable.Stack stackReq) {
-				net.minecraft.world.item.ItemStack requestedStack = stackReq.getStack();
-				
-				if (summary.getCountOf(requestedStack) >= requestedStack.getCount()) {
-					boolean sent = com.ogtenzohd.cclogistics.util.LogisticsBridge.sendPackage(ticker, requestedStack.copy(), requestedStack.getCount(), address, null);
-					if (sent) activeRequestIds.add(request.getId());
-				}
-			}
-		}
-		activeRequestIds.retainAll(currentActiveIds);
+    LogisticsRequestHelper.processAllLogistics(colony, summary, 
+        (req) -> PackageRouting.resolvePackageName(this.packages, req), 
+        (request, stack, address) -> {
+            currentIds.add(request.getId());
+            if (!activeRequestIds.contains(request.getId())) {
+                if (com.ogtenzohd.cclogistics.util.LogisticsBridge.sendPackage(ticker, stack, stack.getCount(), address, null)) {
+                    activeRequestIds.add(request.getId());
+                }
+            }
+        },
+        (request, stack, available, needed) -> {
+            currentIds.add(request.getId());
+        }
+    );
+
+    activeRequestIds.retainAll(currentIds);
 	}
 
     public void setPackages(List<BuildingRoutingEntry> packages) {
