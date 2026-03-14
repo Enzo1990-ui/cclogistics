@@ -74,34 +74,28 @@ public class LogisticsControllerBlockEntity extends SmartBlockEntity implements 
     }
 
     private void performRequest() {
-    if (tickerLink == null || level == null || level.isClientSide) return;
-    if (!(level.getBlockEntity(tickerLink) instanceof StockTickerBlockEntity ticker)) return;
-    IColony colony = MinecoloniesAPIProxy.getInstance().getColonyManager().getIColony(level, worldPosition);
-    if (colony == null) return;
-
-    com.simibubi.create.content.logistics.packager.InventorySummary summary = 
-        com.simibubi.create.content.logistics.packagerLink.LogisticsManager.getSummaryOfNetwork(
-            ticker.getBehaviour(com.simibubi.create.content.logistics.packagerLink.LogisticallyLinkedBehaviour.TYPE).freqId, false);
-
-    Set<Object> currentIds = new HashSet<>();
-
-    LogisticsRequestHelper.processAllLogistics(colony, summary, 
-        (req) -> PackageRouting.resolvePackageName(this.packages, req), 
-        (request, stack, address) -> {
-            currentIds.add(request.getId());
-            if (!activeRequestIds.contains(request.getId())) {
-                if (com.ogtenzohd.cclogistics.util.LogisticsBridge.sendPackage(ticker, stack, stack.getCount(), address, null)) {
-                    activeRequestIds.add(request.getId());
-                }
-            }
-        },
-        (request, stack, available, needed) -> {
-            currentIds.add(request.getId());
+        if (tickerLink == null) return;
+        
+        if (!(level.getBlockEntity(tickerLink) instanceof StockTickerBlockEntity ticker)) {
+            return;
         }
-    );
 
-    activeRequestIds.retainAll(currentIds);
-	}
+        IColony colony = MinecoloniesAPIProxy.getInstance().getColonyManager().getIColony(level, worldPosition);
+        
+        if (colony == null) return;
+
+        // UPDATED METHOD CALL
+        LogisticsRequestHelper.processRequests(
+            colony,
+            ticker,
+            this.activeRequestIds,
+            this.failedRequestIds,
+            (request) -> PackageRouting.resolvePackageName(this.packages, request),
+            null,
+            null,
+            null
+        );
+    }
 
     public void setPackages(List<BuildingRoutingEntry> packages) {
         this.packages = packages;

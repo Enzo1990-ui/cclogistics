@@ -186,39 +186,29 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
     }
 
     public void coordinateLogistics() {
-    if (level == null || level.isClientSide) return;
-    StockTickerBlockEntity ticker = resolveTicker();
-    IColony colony = MinecoloniesAPIProxy.getInstance().getColonyManager().getIColony(level, worldPosition);
-    if (ticker == null || colony == null) return;
+        if (level == null || level.isClientSide) return;
 
-    com.simibubi.create.content.logistics.packager.InventorySummary summary = 
-        com.simibubi.create.content.logistics.packagerLink.LogisticsManager.getSummaryOfNetwork(
-            ticker.getBehaviour(com.simibubi.create.content.logistics.packagerLink.LogisticallyLinkedBehaviour.TYPE).freqId, false);
+        StockTickerBlockEntity ticker = resolveTicker();
+        if (ticker == null) return;
 
-    Set<Object> currentIds = new HashSet<>();
-    
-    LogisticsRequestHelper.processAllLogistics(colony, summary, this::resolveAddress, 
-    (request, stack, address) -> {
-        currentIds.add(request.getId());
-        if (!activeRequestIds.contains(request.getId())) {
-            cacheA.add(new com.ogtenzohd.cclogistics.colony.ai.LogisticsCoordinatorAI.ManifestEntry(stack.copy(), address));
-            activeRequestIds.add(request.getId());
-            
-            addIncomingLog("IN;Received " + stack.getHoverName().getString(), 100);
-            updateTracker(stack.getHoverName().getString(), stack.getCount(), FreightTrackerModule.TrackStatus.ACCEPTED, null);
-            setChanged();
+        IColony colony = MinecoloniesAPIProxy.getInstance().getColonyManager().getIColony(level, worldPosition);
+        if (colony == null) {
+            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.warn("[FreightDepotBE] CoordinateLogistics failed: Colony not found at " + worldPosition);
+            return;
         }
-    },
-    (request, stack, available, needed) -> {
-        currentIds.add(request.getId());
-        String statusMessage = (available == 0) ? "No Stock" : (needed - available) + " Missing";
-        
-        addIncomingLog("MISS;" + stack.getHoverName().getString() + ": " + statusMessage, 100);
-        updateTracker(stack.getHoverName().getString(), needed, FreightTrackerModule.TrackStatus.NO_STOCK, statusMessage);
-    });
 
-    activeRequestIds.retainAll(currentIds);
-	}
+        // UPDATED METHOD CALL
+        LogisticsRequestHelper.processRequests(
+            colony,
+            ticker,
+            this.activeRequestIds,
+            this.failedRequestIds,
+            (request) -> resolveAddress(request), 
+            this.pendingIncomingLogs,
+            (stack) -> this.protectItem(stack, 30),
+            this::updateTracker
+        );
+    }
 
     public void updateTracker(String itemName, int amount, com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackStatus status, String override) {
         IBuilding b = getBuilding();
