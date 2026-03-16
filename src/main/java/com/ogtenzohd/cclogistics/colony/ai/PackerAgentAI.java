@@ -234,8 +234,9 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                 break;
 
             case AT_DEPOT_EXCESS:
+                if (!holdingItems.isEmpty()) { state = State.TO_DEPOT_EXPORT; return; }
+
                 com.minecolonies.api.colony.buildings.IBuilding workBuilding = job.getWorkBuilding();
-                
                 String targetAddress = "Colony_Storage";
                 if (workBuilding != null && job.getColony().getWorld() != null) {
                     BlockEntity mainBE = job.getColony().getWorld().getBlockEntity(workBuilding.getPosition());
