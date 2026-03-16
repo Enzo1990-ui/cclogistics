@@ -234,6 +234,8 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                 break;
 
             case AT_DEPOT_EXCESS:
+                if (!holdingItems.isEmpty()) { state = State.TO_DEPOT_EXPORT; return; }
+
                 com.minecolonies.api.colony.buildings.IBuilding workBuilding = job.getWorkBuilding();
                 String targetAddress = "Colony_Storage";
                 if (workBuilding != null && job.getColony().getWorld() != null) {
@@ -241,20 +243,27 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                     if (mainBE instanceof FreightDepotBlockEntity fbe) targetAddress = fbe.getCityTarget();
 
                     for (BlockPos containerPos : workBuilding.getContainers()) {
-                        IItemHandler inv = job.getColony().getWorld().getCapability(Capabilities.ItemHandler.BLOCK, containerPos, null);
-                        if (inv == null && mainBE instanceof FreightDepotBlockEntity fbe) inv = fbe.getBuildingInventory();
+                        IItemHandler inv = getInventorySafely(job.getColony().getWorld(), containerPos);
+                        
+                        if (inv == null && mainBE instanceof FreightDepotBlockEntity fbe && containerPos.equals(workBuilding.getPosition())) {
+                            inv = fbe.getBuildingInventory();
+                        }
 
                         if (inv != null) {
                             List<ItemStack> toPack = new ArrayList<>();
-                            int maxCapacity = Math.min(2 + (CCLConfig.INSTANCE.enableSkillScaling.get() ? getSkillLevel(Skill.Strength) * CCLConfig.INSTANCE.packerCapacityPerStrength.get() : 0), 9);
+                            int maxCapacity = 2 + (CCLConfig.INSTANCE.enableSkillScaling.get() ? getSkillLevel(Skill.Strength) * CCLConfig.INSTANCE.packerCapacityPerStrength.get() : 0);
+                            maxCapacity = Math.min(maxCapacity, 9);
                             
                             for (int s = 0; s < inv.getSlots(); s++) {
-                                if (toPack.size() >= maxCapacity) break; 
+                                if (toPack.size() >= maxCapacity) break;
                                 ItemStack check = inv.extractItem(s, 64, true);
                                 if (!check.isEmpty()) {
                                     if (isPackage(check)) {
                                         if (!toPack.isEmpty()) break;
-                                        holdingItems.add(inv.extractItem(s, 64, false));
+                                        ItemStack extracted = inv.extractItem(s, 64, false);
+                                        holdingItems.add(extracted);
+                                        
+                                        job.getCitizen().getEntity().ifPresent(e -> e.setItemInHand(InteractionHand.MAIN_HAND, extracted.copy()));
                                         state = State.TO_DEPOT_EXPORT;
                                         return;
                                     } else {
@@ -263,14 +272,17 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                                 }
                             }
                             if (!toPack.isEmpty()) {
-                                holdingItems.add(pack(toPack, targetAddress));
+                                ItemStack pkg = pack(toPack, targetAddress);
+                                holdingItems.add(pkg);
+                                job.getCitizen().getEntity().ifPresent(e -> e.setItemInHand(InteractionHand.MAIN_HAND, pkg.copy()));
                                 state = State.TO_DEPOT_EXPORT;
                                 return;
                             }
                         }
                     }
                 }
-                delay = 100; 
+                delay = 100;
+                state = State.IDLE;
                 break;
 
             case TO_DEPOT_EXPORT:

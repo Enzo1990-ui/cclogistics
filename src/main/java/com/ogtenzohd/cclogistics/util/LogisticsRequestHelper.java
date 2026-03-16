@@ -85,6 +85,19 @@ public class LogisticsRequestHelper {
 
         if (allRequests.isEmpty()) return;
 
+        if (activeRequestIds != null) {
+            Set<Object> currentIds = new HashSet<>();
+            for (IRequest<?> req : allRequests) {
+                try {
+                    Method getIdMethod = req.getClass().getMethod("getId");
+                    currentIds.add(getIdMethod.invoke(req));
+                } catch (Exception e) {
+                    currentIds.add(req);
+                }
+            }
+            activeRequestIds.retainAll(currentIds);
+        }
+
         List<BigItemStack> networkInventory = LogisticsBridge.getNetworkInventory(ticker);
         
         int limit = 0;
@@ -92,6 +105,16 @@ public class LogisticsRequestHelper {
             if (limit++ > 50) break;
 
             try {
+                Object reqId = request;
+                try {
+                    Method getIdMethod = request.getClass().getMethod("getId");
+                    reqId = getIdMethod.invoke(request);
+                } catch (Exception e) {}
+
+                if (activeRequestIds != null && activeRequestIds.contains(reqId)) {
+                    continue; 
+                }
+
                 String targetAddress = addressResolver.apply(request);
                 if (targetAddress == null) continue;
 
@@ -112,7 +135,6 @@ public class LogisticsRequestHelper {
                 else {
                     Object innerReq = request.getRequest();
                     if (innerReq != null) {
-                        
                         try {
                             for (Method m : innerReq.getClass().getMethods()) {
                                 if (m.getName().equals("getRepresentation") && m.getParameterCount() == 0) {
@@ -168,12 +190,10 @@ public class LogisticsRequestHelper {
                 }
 
                 if (itemToSend.isEmpty()) {
-                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.warn("   -> FAILED: Extracted item is EMPTY! Could not parse request data.");
                     continue;
                 }
                 
                 if (canColonyCraft(colony, itemToSend)) {
-                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("   -> SKIPPED: Colony can already craft " + itemToSend.getHoverName().getString() + ". Ignoring request.");
                     continue; 
                 }
 
@@ -183,27 +203,20 @@ public class LogisticsRequestHelper {
 
                 int currentStock = getStockCount(networkInventory, itemToSend);
 
-                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) {
-                    LOGGER.info("   -> Stock Check for: " + itemToSend.getHoverName().getString() + " | Needed: " + amountNeeded + " | Found in Create: " + currentStock);
-                }
-
                 if (currentStock >= amountNeeded) {
-                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("   -> Stock verified! Sending to LogisticsBridge...");
                     if (LogisticsBridge.sendPackage(ticker, itemToSend, amountNeeded, targetAddress, null)) {
+                        
+                        if (activeRequestIds != null) activeRequestIds.add(reqId);
+                        
                         if (trackerUpdater != null) {
                             trackerUpdater.track(itemToSend.getHoverName().getString(), amountNeeded, FreightTrackerModule.TrackStatus.ACCEPTED, null);
                         }
                         
                         String successMsg = "Received " + itemToSend.getHoverName().getString();
-                        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCLogistics] COMPLETION: Successfully imported " + amountNeeded + "x " + itemToSend.getHoverName().getString());
-                        
                         if (auditLog != null) auditLog.add("IN;" + successMsg);
                         if (onImportSuccess != null) onImportSuccess.accept(itemToSend);
-                    } else {
-                        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.error("   -> FAILED: LogisticsBridge.sendPackage returned false!");
                     }
                 } else {
-                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.warn("   -> FAILED: Not enough stock in the Create Network.");
                     String statusMessage = (currentStock == 0) ? "No Stock" : (amountNeeded - currentStock) + " Missing";
 
                     if (trackerUpdater != null) {
@@ -319,6 +332,7 @@ public class LogisticsRequestHelper {
 
     private static boolean canColonyCraft(IColony colony, ItemStack stack) {
         if (stack.isEmpty()) return false;
+        
         if (stack.getMaxDamage() > 0 || !stack.isStackable()) {
             return false;
         }
