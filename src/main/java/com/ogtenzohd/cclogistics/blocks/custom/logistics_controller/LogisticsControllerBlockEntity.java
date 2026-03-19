@@ -12,9 +12,6 @@ import com.ogtenzohd.cclogistics.registration.CCLRegistration;
 import com.simibubi.create.content.logistics.stockTicker.StockTickerBlockEntity;
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
-import com.simibubi.create.content.logistics.packager.InventorySummary;
-import com.simibubi.create.content.logistics.packagerLink.LogisticsManager;
-import com.simibubi.create.content.logistics.packagerLink.LogisticallyLinkedBehaviour;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -47,6 +44,7 @@ public class LogisticsControllerBlockEntity extends SmartBlockEntity implements 
 
     private final HashSet<Object> activeRequestIds = new HashSet<>();
     private final HashSet<Object> failedRequestIds = new HashSet<>();
+    private final HashSet<String> sentRequestIds = new HashSet<>();
 
     protected final ContainerData data = new ContainerData() {
         @Override public int get(int pIndex) { return 0; }
@@ -83,14 +81,14 @@ public class LogisticsControllerBlockEntity extends SmartBlockEntity implements 
         IColony colony = MinecoloniesAPIProxy.getInstance().getColonyManager().getIColony(level, worldPosition);
         
         if (colony == null) return;
-
-        // UPDATED METHOD CALL
         LogisticsRequestHelper.processRequests(
             colony,
             ticker,
             this.activeRequestIds,
             this.failedRequestIds,
+            this.sentRequestIds,
             (request) -> PackageRouting.resolvePackageName(this.packages, request),
+            null,
             null,
             null,
             null
@@ -147,6 +145,13 @@ public class LogisticsControllerBlockEntity extends SmartBlockEntity implements 
         ListTag list = new ListTag();
         for (BuildingRoutingEntry p : packages) list.add(p.serialize());
         tag.put("Packages", list);
+        ListTag sentList = new ListTag();
+        for (String id : sentRequestIds) {
+            CompoundTag sentTag = new CompoundTag();
+            sentTag.putString("id", id);
+            sentList.add(sentTag);
+        }
+        tag.put("SentRequestIds", sentList);
     }
 
     @Override
@@ -160,6 +165,13 @@ public class LogisticsControllerBlockEntity extends SmartBlockEntity implements 
             ListTag list = tag.getList("Packages", Tag.TAG_COMPOUND);
             for (int i = 0; i < list.size(); i++) {
                 packages.add(BuildingRoutingEntry.deserialize(list.getCompound(i)));
+            }
+        }
+        if (tag.contains("SentRequestIds")) {
+            sentRequestIds.clear();
+            ListTag sentList = tag.getList("SentRequestIds", Tag.TAG_COMPOUND);
+            for (int i = 0; i < sentList.size(); i++) {
+                sentRequestIds.add(sentList.getCompound(i).getString("id"));
             }
         }
     }

@@ -7,12 +7,12 @@ import com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class FreightTrackerModuleView extends AbstractBuildingModuleView {
-
-    private final List<FreightTrackerModule.TrackedRequest> activeRequests = new ArrayList<>();
+    
+    public final Map<String, FreightTrackerModule.TrackedReq> requests = new ConcurrentHashMap<>();
 
     public FreightTrackerModuleView() {
         super();
@@ -25,27 +25,18 @@ public class FreightTrackerModuleView extends AbstractBuildingModuleView {
 
     @Override
     public void deserialize(RegistryFriendlyByteBuf buf) {
-        activeRequests.clear();
+        requests.clear();
         int size = buf.readInt();
         for (int i = 0; i < size; i++) {
-            String itemName = buf.readUtf();
-            int amount = buf.readInt();
-            String statusName = buf.readUtf();
-            
-            String override = buf.readUtf();
-            if (override.isEmpty()) override = null;
-
-            activeRequests.add(new FreightTrackerModule.TrackedRequest(
-                    itemName, 
-                    amount, 
-                    FreightTrackerModule.TrackStatus.valueOf(statusName),
-                    override
-            ));
+            String id = buf.readUtf();
+            FreightTrackerModule.TrackedReq r = new FreightTrackerModule.TrackedReq();
+            r.itemName = buf.readUtf();
+            r.amount = buf.readInt();
+            r.status = FreightTrackerModule.TrackStatus.values()[buf.readInt()];
+            r.override = buf.readUtf();
+            r.timestamp = buf.readLong();
+            requests.put(id, r);
         }
-    }
-
-    public List<FreightTrackerModule.TrackedRequest> getActiveRequests() {
-        return activeRequests;
     }
 
     @Override

@@ -7,9 +7,9 @@ import com.minecolonies.core.client.gui.AbstractModuleWindow;
 import com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule;
 import com.ogtenzohd.cclogistics.colony.buildings.moduleviews.FreightTrackerModuleView;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class FreightTrackerWindow extends AbstractModuleWindow<FreightTrackerModuleView> {
@@ -29,7 +29,8 @@ public class FreightTrackerWindow extends AbstractModuleWindow<FreightTrackerMod
     private void updateList() {
         if (requestList == null) return;
         
-        List<FreightTrackerModule.TrackedRequest> requests = moduleView.getActiveRequests();
+        List<FreightTrackerModule.TrackedReq> requests = new ArrayList<>(moduleView.requests.values());
+        requests.sort((a, b) -> Long.compare(b.timestamp, a.timestamp));
 
         requestList.setDataProvider(new ScrollingList.DataProvider() {
             @Override
@@ -41,29 +42,40 @@ public class FreightTrackerWindow extends AbstractModuleWindow<FreightTrackerMod
             public void updateElement(int index, Pane rowPane) {
                 if (index < 0 || index >= requests.size()) return;
                 
-                FreightTrackerModule.TrackedRequest req = requests.get(index);
+                FreightTrackerModule.TrackedReq req = requests.get(index);
                 Text itemText = rowPane.findPaneOfTypeByID("requestText", Text.class);
                 Text statusText = rowPane.findPaneOfTypeByID("statusText", Text.class);
                 
                 if (itemText != null && statusText != null) {
-                    // Truncate the item name -- Bug fix
-                    String shortItemName = req.itemName.length() > 20 ? req.itemName.substring(0, 17) + "..." : req.itemName;
+                    String rawName = (req.itemName != null && !req.itemName.isEmpty()) ? req.itemName : "Loading...";
+                    String shortItemName = rawName.length() > 20 ? rawName.substring(0, 17) + "..." : rawName;
                     
-                    // Top line: Black text, "64x Item Name"
                     itemText.setText(Component.literal(req.amount + "x " + shortItemName).withStyle(net.minecraft.ChatFormatting.BLACK));
                     
-                    // Add symbols because i found out i can...
                     String symbol = "• ";
-                    String statusName = req.status.displayName;
-                    if (statusName.contains("No Stock") || statusName.contains("Failed")) {
-                        symbol = "✖ ";
-                    } else if (statusName.contains("Accepted") || statusName.contains("Success")) {
-                        symbol = "✔ ";
-                    } else if (statusName.contains("Transit") || statusName.contains("Routing")) {
-                        symbol = "➔ ";
+                    String statusStr = req.status.display; 
+                    
+                    if (req.override != null && !req.override.isEmpty() && req.status != FreightTrackerModule.TrackStatus.COMPLETED) {
+                        statusStr = "§7[" + req.override + "]";
                     }
 
-                    statusText.setText(Component.literal(symbol + statusName).withStyle(req.status.color));
+                    if (statusStr.contains("Out of Stock")) {
+                        symbol = "§c✖ ";
+                    } else if (statusStr.contains("Complete")) {
+                        symbol = "§2✔ ";
+                    } else if (statusStr.contains("Delivering")) {
+                        symbol = "§d➔ "; 
+                    } else if (statusStr.contains("Depot Received")) {
+                        symbol = "§b📦 ";
+                    } else if (statusStr.contains("En Route")) {
+                        symbol = "§a🚂 ";
+                    } else if (statusStr.contains("Ticker Received")) {
+                        symbol = "§e📥 ";
+                    } else if (statusStr.contains("Requested")) {
+                        symbol = "§e⏳ ";
+                    }
+
+                    statusText.setText(Component.literal(symbol + statusStr));
                 }
             }
         });
@@ -72,10 +84,11 @@ public class FreightTrackerWindow extends AbstractModuleWindow<FreightTrackerMod
     @Override
     public void onUpdate() {
         super.onUpdate();
-        List<FreightTrackerModule.TrackedRequest> currentRequests = moduleView.getActiveRequests();
-        if (currentRequests.size() != lastSize) {
+        int currentSize = moduleView.requests.size();
+        
+        if (currentSize != lastSize) {
             updateList();
-            lastSize = currentRequests.size();
+            lastSize = currentSize;
         }
     }
 }

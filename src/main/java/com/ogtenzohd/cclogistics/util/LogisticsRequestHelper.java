@@ -5,11 +5,9 @@ import com.minecolonies.api.colony.requestsystem.request.IRequest;
 import com.minecolonies.api.colony.requestsystem.requestable.Stack;
 import com.simibubi.create.content.logistics.BigItemStack;
 import com.simibubi.create.content.logistics.stockTicker.StockTickerBlockEntity;
-import com.minecolonies.api.colony.IColonyManager;
-import com.minecolonies.api.crafting.IRecipeStorage;
 import net.minecraft.world.item.ItemStack;
-import com.ogtenzohd.cclogistics.config.CCLConfig;
 import com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule;
+import com.ogtenzohd.cclogistics.config.CCLConfig;
 import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
@@ -22,354 +20,291 @@ import java.util.function.Consumer;
 public class LogisticsRequestHelper {
 
     private static final Logger LOGGER = LogUtils.getLogger();
+    private static Field F_IDENTITIES_MAP;
 
     @FunctionalInterface
     public interface TrackerUpdater {
-        void track(String itemName, int amount, FreightTrackerModule.TrackStatus status, String override);
+        void track(String id, String itemName, int amount, FreightTrackerModule.TrackStatus status, String override);
+    }
+    
+    @FunctionalInterface
+    public interface OrderCacher {
+        void cacheOrder(ItemStack item, int amount, String targetAddress);
     }
 
-    @SuppressWarnings("unchecked")
-    public static void processRequests(
+   public static void processRequests(
             IColony colony,
             StockTickerBlockEntity ticker,
             Set<Object> activeRequestIds,
             Set<Object> failedRequestIds,
+            Set<String> sentRequestIds,
             Function<IRequest<?>, String> addressResolver,
             List<String> auditLog,
             Consumer<ItemStack> onImportSuccess,
-            TrackerUpdater trackerUpdater 
+            TrackerUpdater trackerUpdater,
+            OrderCacher orderCacher
     ) {
         if (colony == null || ticker == null) return;
 
-        List<IRequest<?>> allRequests = new ArrayList<>();
+        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[RequestHelper] Initiating Request Processing Cycle...");
+
+        Map<String, IRequest<?>> liveRequests = new HashMap<>();
         Object manager = colony.getRequestManager();
 
-        if (manager != null) {
-            Object dataStoreManager = getFieldByName(manager, "dataStoreManager");
-            if (dataStoreManager != null) {
-                Object storeMapObj = getFieldByName(dataStoreManager, "storeMap");
-                if (storeMapObj instanceof Map) {
-                    Map<?, ?> storeMap = (Map<?, ?>) storeMapObj;
-                    for (Object dataStore : storeMap.values()) {
-                        if (dataStore == null) continue;
-                        for (Field f : getAllFields(dataStore.getClass())) {
-                            try {
-                                f.setAccessible(true);
-                                Object val = f.get(dataStore);
-                                
-                                if (val instanceof Collection<?> coll) {
-                                    for (Object item : coll) {
-                                        if (item instanceof IRequest) {
-                                            allRequests.add((IRequest<?>) item);
-                                        }
-                                    }
-                                } else if (val instanceof Map<?, ?> reqMap) {
-                                    for (Object mapVal : reqMap.values()) {
-                                        if (mapVal instanceof IRequest) {
-                                            allRequests.add((IRequest<?>) mapVal);
-                                        } else if (mapVal instanceof Collection<?> innerColl) {
-                                            for (Object innerItem : innerColl) {
-                                                if (innerItem instanceof IRequest) {
-                                                    allRequests.add((IRequest<?>) innerItem);
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            } catch (Exception ignored) {}
+        try {
+            Field fManager = manager.getClass().getDeclaredField("dataStoreManager");
+            fManager.setAccessible(true);
+            Object dataStoreManager = fManager.get(manager);
+
+            Field fStoreMap = dataStoreManager.getClass().getDeclaredField("storeMap");
+            fStoreMap.setAccessible(true);
+            Map<?, ?> storeMap = (Map<?, ?>) fStoreMap.get(dataStoreManager);
+
+            for (Object store : storeMap.values()) {
+                if (store.getClass().getSimpleName().equals("StandardRequestIdentitiesDataStore")) {
+                    if (F_IDENTITIES_MAP == null) {
+                        F_IDENTITIES_MAP = store.getClass().getDeclaredField("map");
+                        F_IDENTITIES_MAP.setAccessible(true);
+                    }
+                    Map<?, ?> reqMap = (Map<?, ?>) F_IDENTITIES_MAP.get(store);
+                    
+                    for (Map.Entry<?, ?> entry : reqMap.entrySet()) {
+                        if (entry.getValue() instanceof IRequest<?> req) {
+                            liveRequests.put(entry.getKey().toString(), req);
                         }
                     }
+                    break; 
                 }
             }
+        } catch (Exception e) {
+            LOGGER.error("[CCLogistics] DataStore Hook Failed!", e);
+            return;
         }
-
-        if (allRequests.isEmpty()) return;
 
         if (activeRequestIds != null) {
-            Set<Object> currentIds = new HashSet<>();
-            for (IRequest<?> req : allRequests) {
-                try {
-                    Method getIdMethod = req.getClass().getMethod("getId");
-                    currentIds.add(getIdMethod.invoke(req));
-                } catch (Exception e) {
-                    currentIds.add(req);
+            Set<Object> currentIds = new HashSet<>(liveRequests.keySet());
+            for (Object oldId : new HashSet<>(activeRequestIds)) {
+                if (!currentIds.contains(oldId)) {
+                    if (trackerUpdater != null) {
+                        trackerUpdater.track(oldId.toString(), "Request", 0, FreightTrackerModule.TrackStatus.COMPLETED, "Delivered");
+                    }
+                    activeRequestIds.remove(oldId);
+                    if (sentRequestIds != null) sentRequestIds.remove(oldId.toString());
                 }
             }
-            activeRequestIds.retainAll(currentIds);
+            activeRequestIds.addAll(currentIds);
+        }
+        List<BigItemStack> networkInv = LogisticsBridge.getNetworkInventory(ticker);
+        Map<net.minecraft.world.item.Item, Integer> virtualStock = new HashMap<>();
+        for (BigItemStack bis : networkInv) {
+            if (!bis.stack.isEmpty()) {
+                virtualStock.put(bis.stack.getItem(), virtualStock.getOrDefault(bis.stack.getItem(), 0) + bis.count);
+            }
         }
 
-        List<BigItemStack> networkInventory = LogisticsBridge.getNetworkInventory(ticker);
-        
-        int limit = 0;
-        for (IRequest<?> request : allRequests) {
-            if (limit++ > 50) break;
+        int count = 0;
+        for (Map.Entry<String, IRequest<?>> entry : liveRequests.entrySet()) {
+            if (count++ > 40) break;
+            String id = entry.getKey();
+            IRequest<?> req = entry.getValue();
 
             try {
-                Object reqId = request;
-                try {
-                    Method getIdMethod = request.getClass().getMethod("getId");
-                    reqId = getIdMethod.invoke(request);
-                } catch (Exception e) {}
-
-                if (activeRequestIds != null && activeRequestIds.contains(reqId)) {
-                    continue; 
-                }
-
-                String targetAddress = addressResolver.apply(request);
+                String targetAddress = addressResolver.apply(req);
                 if (targetAddress == null) continue;
 
-                ItemStack itemToSend = ItemStack.EMPTY;
-                int amountNeeded = 1; 
-                String reqType = request.getClass().getSimpleName();
-
-                if (request.getRequest() instanceof Stack itemReq) {
-                    itemToSend = itemReq.getStack().copy(); 
-                    amountNeeded = itemReq.getCount(); 
-                } 
-                else if (reqType.contains("ToolRequest")) {
-                    itemToSend = solveRequestByTier(request, networkInventory, "getMiningLevel");
-                }
-                else if (reqType.contains("ArmorRequest")) {
-                    itemToSend = solveRequestByTier(request, networkInventory, "getLevel");
-                }
-                else {
-                    Object innerReq = request.getRequest();
-                    if (innerReq != null) {
-                        try {
-                            for (Method m : innerReq.getClass().getMethods()) {
-                                if (m.getName().equals("getRepresentation") && m.getParameterCount() == 0) {
-                                    Object rep = m.invoke(innerReq);
-                                    if (rep instanceof List list && !list.isEmpty()) {
-                                        Object first = list.get(0);
-                                        if (first instanceof ItemStack st) {
-                                            itemToSend = st.copy();
-                                            amountNeeded = st.getCount();
-                                        }
-                                    }
-                                    break;
-                                }
-                            }
-                        } catch (Exception e) {}
-
-                        if (itemToSend.isEmpty()) {
-                            for (Field f : getAllFields(innerReq.getClass())) {
-                                try {
-                                    f.setAccessible(true);
-                                    Object val = f.get(innerReq);
-                                    
-                                    if (val instanceof ItemStack stack && !stack.isEmpty()) {
-                                        itemToSend = stack.copy();
-                                        amountNeeded = stack.getCount();
-                                        break;
-                                    } else if (val instanceof Stack stackReq) {
-                                        itemToSend = stackReq.getStack().copy();
-                                        amountNeeded = stackReq.getCount();
-                                        break;
-                                    } else if (val instanceof Collection<?> coll) {
-                                        for (Object obj : coll) {
-                                            if (obj instanceof ItemStack stackObj && !stackObj.isEmpty()) {
-                                                itemToSend = stackObj.copy();
-                                                amountNeeded = stackObj.getCount();
-                                                break;
-                                            } else if (obj instanceof Stack stackObj) {
-                                                itemToSend = stackObj.getStack().copy();
-                                                amountNeeded = stackObj.getCount();
-                                                break;
-                                            } else if (obj instanceof net.minecraft.world.item.Item itemObj) {
-                                                itemToSend = new ItemStack(itemObj, 1);
-                                                amountNeeded = 1;
-                                                break;
-                                            }
-                                        }
-                                        if (!itemToSend.isEmpty()) break;
-                                    }
-                                } catch (Exception ignored) {}
-                            }
-                        }
-                    }
-                }
-
-                if (itemToSend.isEmpty()) {
-                    continue;
-                }
+                String type = req.getClass().getSimpleName();
                 
-                if (canColonyCraft(colony, itemToSend)) {
+                if (type.contains("DeliveryRequest")) {
+                    ItemStack deliveryItem = extractStackTargeted(req);
+                    int delAmount = extractAmountTargeted(req);
+                    if (delAmount <= 0) delAmount = 1; 
+                    String name = !deliveryItem.isEmpty() ? deliveryItem.getHoverName().getString() : "Transit Package";
+                    if (trackerUpdater != null) trackerUpdater.track(id, name, delAmount, FreightTrackerModule.TrackStatus.DELIVERING, null);
                     continue; 
                 }
+                
+                Object innerReq = req.getRequest();
+                if (innerReq == null) continue;
 
-                if (trackerUpdater != null) {
-                    trackerUpdater.track(itemToSend.getHoverName().getString(), amountNeeded, FreightTrackerModule.TrackStatus.REQUESTED, null);
+                ItemStack itemToSend = ItemStack.EMPTY;
+                int amountNeeded = extractAmountTargeted(req);
+                if (amountNeeded <= 0) amountNeeded = extractAmountTargeted(innerReq);
+                if (amountNeeded <= 0) amountNeeded = 1; 
+
+                if (type.contains("ToolRequest") || type.contains("ArmorRequest")) {
+                    itemToSend = solveByTierTargeted(innerReq, networkInv);
+                    amountNeeded = 1;
+                } else if (type.contains("ItemStackRequest") || type.contains("MinStackRequest") || type.contains("ResourceRequest")) {
+                    itemToSend = extractStackTargeted(innerReq);
+                    if (amountNeeded <= 1 && !itemToSend.isEmpty()) amountNeeded = itemToSend.getCount();
+                } else if (type.contains("FoodRequest")) {
+                    itemToSend = solveFoodTargeted(networkInv);
+                    amountNeeded = 1;
                 }
 
-                int currentStock = getStockCount(networkInventory, itemToSend);
+                if (itemToSend.isEmpty()) continue;
+                int maxPackageCapacity = itemToSend.getMaxStackSize() * 9;
+                if (amountNeeded > maxPackageCapacity) amountNeeded = maxPackageCapacity;
+                if (sentRequestIds != null && sentRequestIds.contains(id)) {
+                    if (trackerUpdater != null) trackerUpdater.track(id, itemToSend.getHoverName().getString(), amountNeeded, FreightTrackerModule.TrackStatus.ACCEPTED, "Dispatched");
+                    continue;
+                }
 
-                if (currentStock >= amountNeeded) {
-                    if (LogisticsBridge.sendPackage(ticker, itemToSend, amountNeeded, targetAddress, null)) {
+                int stock = virtualStock.getOrDefault(itemToSend.getItem(), 0);
+
+                if (stock >= amountNeeded) {
+                    if (orderCacher != null) {
+                        boolean success = LogisticsBridge.sendPackage(ticker, itemToSend, amountNeeded, targetAddress, null);
                         
-                        if (activeRequestIds != null) activeRequestIds.add(reqId);
-                        
-                        if (trackerUpdater != null) {
-                            trackerUpdater.track(itemToSend.getHoverName().getString(), amountNeeded, FreightTrackerModule.TrackStatus.ACCEPTED, null);
+                        if (success) {
+                            if (sentRequestIds != null) sentRequestIds.add(id);
+                            virtualStock.put(itemToSend.getItem(), stock - amountNeeded);
+
+                            orderCacher.cacheOrder(itemToSend, amountNeeded, targetAddress);
+                            if (trackerUpdater != null) trackerUpdater.track(id, itemToSend.getHoverName().getString(), amountNeeded, FreightTrackerModule.TrackStatus.ACCEPTED, null);
+                            if (onImportSuccess != null) onImportSuccess.accept(itemToSend);
+                            if (auditLog != null) auditLog.add("IN;Imported " + amountNeeded + "x " + itemToSend.getHoverName().getString());
+                        } else {
+                            String failMsg = "Create Network Routing Failed";
+                            if (trackerUpdater != null) trackerUpdater.track(id, itemToSend.getHoverName().getString(), amountNeeded, FreightTrackerModule.TrackStatus.NO_STOCK, failMsg);
                         }
-                        
-                        String successMsg = "Received " + itemToSend.getHoverName().getString();
-                        if (auditLog != null) auditLog.add("IN;" + successMsg);
-                        if (onImportSuccess != null) onImportSuccess.accept(itemToSend);
                     }
                 } else {
-                    String statusMessage = (currentStock == 0) ? "No Stock" : (amountNeeded - currentStock) + " Missing";
-
-                    if (trackerUpdater != null) {
-                        trackerUpdater.track(itemToSend.getHoverName().getString(), amountNeeded, FreightTrackerModule.TrackStatus.NO_STOCK, statusMessage);
-                    }
-
-                    if (auditLog != null) {
-                        auditLog.add(itemToSend.getHoverName().getString() + ": " + statusMessage);
-                        auditLog.add("MISS;" + itemToSend.getHoverName().getString() + ": " + statusMessage);
-                    }
+                    String msg = (stock == 0) ? "No Stock" : (amountNeeded - stock) + " Missing";
+                    if (trackerUpdater != null) trackerUpdater.track(id, itemToSend.getHoverName().getString(), amountNeeded, FreightTrackerModule.TrackStatus.NO_STOCK, msg);
                 }
-
             } catch (Exception e) {
-                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.error("[CCLogistics] CRASH while processing individual request!", e);
+                LOGGER.error("Failed to process request ID: " + id, e);
             }
         }
     }
 
-    private static int getStockCount(List<BigItemStack> networkInv, ItemStack needed) {
-        int totalStock = 0;
-        for (BigItemStack bis : networkInv) {
-            if (!bis.stack.isEmpty() && !needed.isEmpty() && bis.stack.getItem() == needed.getItem()) {
-                totalStock += bis.count;
-            }
-        }
-        return totalStock;
+    private static ItemStack extractStackTargeted(Object obj) {
+        return extractStackTargetedRecursive(obj, java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()));
     }
 
-    private static ItemStack solveRequestByTier(IRequest<?> request, List<BigItemStack> inventory, String checkMethodName) {
-        try {
-            Object innerObj = request.getRequest(); 
-            if (innerObj == null) return ItemStack.EMPTY;
-            
-            ItemStack representation = ItemStack.EMPTY;
+    private static ItemStack extractStackTargetedRecursive(Object obj, Set<Object> visited) {
+        if (obj == null || !visited.add(obj)) return ItemStack.EMPTY;
+
+        if (obj instanceof ItemStack stack && !stack.isEmpty()) return stack.copy();
+        if (obj instanceof net.minecraft.world.item.Item item) return new ItemStack(item);
+
+        if (obj.getClass().getSimpleName().equals("Stack")) {
             try {
-                for (Method m : innerObj.getClass().getMethods()) {
-                    if (m.getName().equals("getRepresentation") && m.getParameterCount() == 0) {
-                        Object rep = m.invoke(innerObj);
-                        if (rep instanceof List list && !list.isEmpty()) {
-                            Object first = list.get(0);
-                            if (first instanceof ItemStack st) representation = st.copy();
+                Method m = obj.getClass().getMethod("getStack");
+                ItemStack s = (ItemStack) m.invoke(obj);
+                if (s != null && !s.isEmpty()) return s.copy();
+            } catch (Exception e) {}
+        }
+
+        if (obj instanceof Collection<?> coll) {
+            for (Object inner : coll) {
+                ItemStack res = extractStackTargetedRecursive(inner, visited);
+                if (!res.isEmpty()) return res;
+            }
+        }
+
+        try {
+            for (Class<?> c = obj.getClass(); c != null; c = c.getSuperclass()) {
+                if (c.getName().startsWith("java.")) continue;
+                for (Field f : c.getDeclaredFields()) {
+                    f.setAccessible(true);
+                    Object val = f.get(obj);
+                    if (val == null) continue;
+
+                    if (val instanceof ItemStack stack && !stack.isEmpty()) return stack.copy();
+                    if (val instanceof net.minecraft.world.item.Item item) return new ItemStack(item);
+
+                    if (val instanceof Collection<?> coll) {
+                        for (Object inner : coll) {
+                            ItemStack res = extractStackTargetedRecursive(inner, visited);
+                            if (!res.isEmpty()) return res;
                         }
-                        break;
+                    } else if (val.getClass().getName().contains("minecolonies")) {
+                        ItemStack deep = extractStackTargetedRecursive(val, visited);
+                        if (!deep.isEmpty()) return deep;
                     }
                 }
-            } catch (Exception e) {}
-
-            Object equipmentType = getFieldByName(innerObj, "equipmentType");
-            if (equipmentType == null) equipmentType = getFieldByName(innerObj, "type");
-            if (equipmentType == null) equipmentType = getFieldByName(innerObj, "toolType"); 
-            
-            if (equipmentType == null) {
-                if (!representation.isEmpty() && getStockCount(inventory, representation) > 0) {
-                    representation.setCount(1);
-                    return representation;
-                }
-                return ItemStack.EMPTY;
             }
-
-            int minLevel = 0;
-            int maxLevel = 99;
-            try { 
-                Object minObj = getFieldByName(innerObj, "minLevel");
-                if (minObj != null) minLevel = (int) minObj;
-            } catch (Exception e) {}
-            
-            try { 
-                Object maxObj = getFieldByName(innerObj, "maxLevel");
-                if (maxObj != null) maxLevel = (int) maxObj;
-            } catch (Exception e) {}
-
-            Method levelCheckMethod = null;
-            try { levelCheckMethod = equipmentType.getClass().getMethod(checkMethodName, ItemStack.class); } catch (Exception e) {}
-            if (levelCheckMethod == null) try { levelCheckMethod = equipmentType.getClass().getMethod("getLevel", ItemStack.class); } catch (Exception e) {}
-            if (levelCheckMethod == null) try { levelCheckMethod = equipmentType.getClass().getMethod("getMiningLevel", ItemStack.class); } catch (Exception e) {}
-
-            List<ItemStack> candidates = new ArrayList<>();
-            if (levelCheckMethod != null) {
-                for (BigItemStack bis : inventory) {
-                    ItemStack stack = bis.stack;
-                    if (stack.isEmpty()) continue;
-                    try {
-                        int itemTier = (int) levelCheckMethod.invoke(equipmentType, stack);
-                        if (itemTier >= minLevel && itemTier <= maxLevel) candidates.add(stack);
-                    } catch (Exception e) {}
-                }
-            }
-
-            if (candidates.isEmpty()) {
-                if (!representation.isEmpty() && getStockCount(inventory, representation) > 0) {
-                    representation.setCount(1);
-                    return representation;
-                }
-                return ItemStack.EMPTY;
-            }
-
-            final Method finalMethod = levelCheckMethod;
-            final Object finalEquipmentType = equipmentType;
-
-            candidates.sort((a, b) -> {
-                try {
-                    int tierA = (int) finalMethod.invoke(finalEquipmentType, a);
-                    int tierB = (int) finalMethod.invoke(finalEquipmentType, b);
-                    return Integer.compare(tierB, tierA); 
-                } catch (Exception e) { return 0; }
-            });
-
-            return candidates.get(0).copyWithCount(1);
-        } catch (Exception e) { 
-            return ItemStack.EMPTY; 
-        }
+        } catch (Exception e) {}
+        
+        return ItemStack.EMPTY;
     }
 
-    private static boolean canColonyCraft(IColony colony, ItemStack stack) {
-        if (stack.isEmpty()) return false;
-        
-        if (stack.getMaxDamage() > 0 || !stack.isStackable()) {
-            return false;
+    private static int extractAmountTargeted(Object obj) {
+        return extractAmountRecursive(obj, java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()));
+    }
+
+    private static int extractAmountRecursive(Object obj, Set<Object> visited) {
+        if (obj == null || !visited.add(obj)) return 0; 
+        if (obj instanceof ItemStack stack && !stack.isEmpty()) return stack.getCount();
+        if (obj.getClass().getSimpleName().equals("Stack")) {
+            try {
+                Method m = obj.getClass().getMethod("getCount");
+                int c = (int) m.invoke(obj);
+                if (c > 0) return c;
+            } catch (Exception e) {}
         }
-        
+
+        if (obj instanceof Collection<?> coll) {
+            for (Object inner : coll) {
+                int val = extractAmountRecursive(inner, visited);
+                if (val > 0) return val;
+            }
+        }
+
         try {
-            var recipes = IColonyManager.getInstance().getRecipeManager().getRecipes();
-            for (Object storageObj : recipes.values()) {
-                if (storageObj instanceof IRecipeStorage storage) {
-                    if (storage.getPrimaryOutput() != null && storage.getPrimaryOutput().getItem() == stack.getItem()) return true;
-                    if (storage.getAlternateOutputs() != null) {
-                        for (ItemStack alt : storage.getAlternateOutputs()) {
-                            if (alt != null && alt.getItem() == stack.getItem()) return true;
+            for (Class<?> c = obj.getClass(); c != null; c = c.getSuperclass()) {
+                if (c.getName().startsWith("java.")) continue;
+                for (Field f : c.getDeclaredFields()) {
+                    f.setAccessible(true);
+                    String name = f.getName().toLowerCase();
+                    if (f.getType() == int.class || f.getType() == Integer.class) {
+                        if (name.equals("needed") || name.equals("amount") || name.equals("count") || name.equals("quantity")) {
+                            int val = (int) f.get(obj);
+                            if (val > 0) return val;
+                        }
+                    } else if (!f.getType().isPrimitive() && f.getType() != String.class) {
+                        Object innerVal = f.get(obj);
+                        if (innerVal instanceof Collection<?> coll) {
+                            for (Object inner : coll) {
+                                int res = extractAmountRecursive(inner, visited);
+                                if (res > 0) return res;
+                            }
+                        } else if (innerVal != null && innerVal.getClass().getName().contains("minecolonies")) {
+                            int res = extractAmountRecursive(innerVal, visited);
+                            if (res > 0) return res;
                         }
                     }
                 }
             }
         } catch (Exception e) {}
-        return false;
+        return 0;
     }
 
-    private static Object getFieldByName(Object target, String name) {
-        for (Field f : getAllFields(target.getClass())) {
-            if (f.getName().equals(name)) {
-                try {
-                    f.setAccessible(true);
-                    return f.get(target);
-                } catch (Exception e) {}
+    private static ItemStack solveByTierTargeted(Object innerReq, List<BigItemStack> networkInv) {
+        for (BigItemStack bis : networkInv) {
+            if (!bis.stack.isEmpty() && bis.stack.isDamageableItem()) {
+                return bis.stack.copyWithCount(1);
             }
         }
-        return null;
+        return ItemStack.EMPTY;
     }
 
-    private static List<Field> getAllFields(Class<?> type) {
-        List<Field> fields = new ArrayList<>();
-        for (Class<?> c = type; c != null; c = c.getSuperclass()) {
-            fields.addAll(Arrays.asList(c.getDeclaredFields()));
+    private static ItemStack solveFoodTargeted(List<BigItemStack> networkInv) {
+        for (BigItemStack bis : networkInv) {
+            if (!bis.stack.isEmpty() && bis.stack.has(net.minecraft.core.component.DataComponents.FOOD)) {
+                return bis.stack.copyWithCount(1);
+            }
         }
-        return fields;
+        return ItemStack.EMPTY;
+    }
+
+    private static int getStockCount(List<BigItemStack> inv, ItemStack needed) {
+        int count = 0;
+        for (BigItemStack bis : inv) {
+            if (bis.stack.getItem() == needed.getItem()) count += bis.count;
+        }
+        return count;
     }
 }

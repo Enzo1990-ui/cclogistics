@@ -14,10 +14,10 @@ public class PackerAgentJob extends AbstractJob<PackerAgentAI, PackerAgentJob> {
 
     //THE ROLES -- Bigger Brains
     public enum PackerRole {
-        UNPACKING_IMPORT, PACKING_EXPORT, UNLOADING_TRAIN, LOADING_TRAIN, IDLE
+        UNPACKING_IMPORT, PACKING_EXPORT, UNLOADING_TRAIN, LOADING_TRAIN, GENERAL_DUTY, IDLE
     }
     
-    private PackerRole currentRole = PackerRole.UNPACKING_IMPORT;
+    private PackerRole currentRole = PackerRole.GENERAL_DUTY;
 
     public PackerAgentJob(ICitizenData citizenData) {
         super(citizenData);

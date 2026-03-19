@@ -33,7 +33,7 @@ public class FreightDepotBuilding extends AbstractBuilding {
         return "freight_depot";
     }
 
-    // BRAIN SWAP -- My little robots!
+    // BRAIN SWAP -- 90/10 Unload/Load Split
     public void initateBrainSwap(boolean trainPresent) {
         if (getColony() == null || getColony().getCitizenManager() == null) return;
         
@@ -51,25 +51,22 @@ public class FreightDepotBuilding extends AbstractBuilding {
         int i = 0;
 
         if (trainPresent) {
-            //40% Unload, 40% Load, 10% Unpack, 10% Pack - Make this configurable in future
-            int unloaders = Math.max(1, (int)(total * 0.4));
-            int loaders = Math.max(1, (int)(total * 0.4));
-            int unpackers = Math.max(1, (total - unloaders - loaders) / 2);
-
+            int unloaders = Math.max(1, (int)(total * 0.9));
+            int loaders = Math.max(1, (int)(total * 0.1));
+            
             for (PackerAgentJob worker : workers) {
-                if (i < unloaders) worker.setRole(PackerRole.UNLOADING_TRAIN);
-                else if (i < unloaders + loaders) worker.setRole(PackerRole.LOADING_TRAIN);
-                else if (i < unloaders + loaders + unpackers) worker.setRole(PackerRole.UNPACKING_IMPORT);
-                else worker.setRole(PackerRole.PACKING_EXPORT);
+                if (i < unloaders) {
+                    worker.setRole(PackerRole.UNLOADING_TRAIN);
+                } else if (i < unloaders + loaders) {
+                    worker.setRole(PackerRole.LOADING_TRAIN);
+                } else {
+                    worker.setRole(i % 2 == 0 ? PackerRole.UNPACKING_IMPORT : PackerRole.PACKING_EXPORT);
+                }
                 i++;
             }
         } else {
-            //50% Unpack, 50% Pack - Make this configurable in future
-            int unpackers = Math.max(1, total / 2);
             for (PackerAgentJob worker : workers) {
-                if (i < unpackers) worker.setRole(PackerRole.UNPACKING_IMPORT);
-                else worker.setRole(PackerRole.PACKING_EXPORT);
-                i++;
+                worker.setRole(PackerRole.GENERAL_DUTY);
             }
         }
     }

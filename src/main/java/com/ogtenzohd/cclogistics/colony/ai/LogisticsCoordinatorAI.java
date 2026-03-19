@@ -40,8 +40,8 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
     private State state = State.IDLE;
     private int delay = 0;
     private BlockPos currentTarget = null;
-	private final java.util.List<ManifestEntry> clipboardCacheB = new java.util.ArrayList<>();
-	private final java.util.List<PendingPickup> pendingPickups = new java.util.ArrayList<>();
+    private final java.util.List<ManifestEntry> clipboardCacheB = new java.util.ArrayList<>();
+    private final java.util.List<PendingPickup> pendingPickups = new java.util.ArrayList<>();
 
     public LogisticsCoordinatorAI(LogisticsCoordinatorJob job) {
         super(job);
@@ -56,32 +56,21 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
         if (job.getCitizen() == null || job.getCitizen().getCitizenSkillHandler() == null) return 1;
         return job.getCitizen().getCitizenSkillHandler().getLevel(skill);
     }
-	
-	private static class PendingPickup {
-		String itemName; int count; long requestTime;
-		PendingPickup(String item, int count, long time) { this.itemName = item; this.count = count; this.requestTime = time; }
-	}
-	
-	public static class ManifestEntry {
-    public final ItemStack item;
-    public final String address;
-	
-    public ManifestEntry(ItemStack item, String address) {
-        this.item = item;
-        this.address = address;
-    }}
+    
+    private static class PendingPickup {
+        String itemName; int count; long requestTime;
+        PendingPickup(String item, int count, long time) { this.itemName = item; this.count = count; this.requestTime = time; }
+    }
+    
+    public static class ManifestEntry {
+        public final ItemStack item;
+        public final String address;
+        public final int amount;
 
-    // --- TRACKING HELPER METHOD ---
-    private void updateTracker(String itemName, int amount, FreightTrackerModule.TrackStatus status) {
-        if (job.getWorkBuilding() != null) {
-            FreightTrackerModule module = job.getWorkBuilding().getModule(FreightTrackerModule.class);
-            if (module != null) {
-                if (status == FreightTrackerModule.TrackStatus.COMPLETED) {
-                    module.removeRequest(itemName);
-                } else {
-                    module.updateRequest(itemName, amount, status);
-                }
-            }
+        public ManifestEntry(ItemStack item, String address, int amount) {
+            this.item = item;
+            this.address = address;
+            this.amount = amount;
         }
     }
 
@@ -93,7 +82,7 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
 
         switch (state) {
             case IDLE:
-                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] Starting cycle, moving to TOWNHALL");
+                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] Waking up from IDLE. Preparing new shipping cycle. Target: TOWNHALL.");
                 setHoldingClipboard(false);
                 state = State.TO_TOWNHALL;
                 break;
@@ -107,40 +96,44 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                     currentTarget = townHall.getPosition();
                     moveTo(currentTarget);
                     if (isAt(currentTarget)) {
-                         if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] Arrived at TOWNHALL");
+                         if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] Successfully navigated to TOWNHALL. Transitioning to AT_TOWNHALL.");
                          state = State.AT_TOWNHALL;
                          delay = 100; 
                          setHoldingClipboard(true); 
                     }
                 } else {
-                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.warn("[LogisticsAI] No TownHall found! Skipping to WAREHOUSE");
+                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.warn("[LogisticsAI] WARNING: TownHall building not found in Colony Registry! Aborting manifest pickup and skipping to WAREHOUSE.");
                     state = State.TO_WAREHOUSE;
                 }
                 break;
 
             case AT_TOWNHALL:
-					if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] Picking up shipping manifests at Town Hall...");
+                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] Executing AT_TOWNHALL: Picking up shipping manifests...");
     
-					com.minecolonies.api.colony.buildings.IBuilding depotB = job.getWorkBuilding();
-					if (depotB instanceof FreightDepotBuilding) {
-						if (job.getColony().getWorld() != null) {
-							BlockEntity be = job.getColony().getWorld().getBlockEntity(depotB.getPosition());
-							if (be instanceof FreightDepotBlockEntity depotBE) {
-								java.util.List<ManifestEntry> inbox = depotBE.getAndClearCacheA();
-								this.clipboardCacheB.addAll(inbox);
-                
-								if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) {
-								LOGGER.info("[LogisticsAI] Copied " + inbox.size() + " orders to the clipboard!");
-								}
-							} 
-						}
-					}
+                com.minecolonies.api.colony.buildings.IBuilding depotB = job.getWorkBuilding();
+                if (depotB instanceof FreightDepotBuilding) {
+                    if (job.getColony().getWorld() != null) {
+                        BlockEntity be = job.getColony().getWorld().getBlockEntity(depotB.getPosition());
+                        if (be instanceof FreightDepotBlockEntity depotBE) {
+                            java.util.List<ManifestEntry> inbox = depotBE.getAndClearCacheA();
+                            this.clipboardCacheB.addAll(inbox);
+            
+                            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) {
+                                LOGGER.info("[LogisticsAI] Copied " + inbox.size() + " active manifests from Depot CacheA to local ClipboardCacheB!");
+                                for (ManifestEntry entry : inbox) {
+                                    LOGGER.info("[LogisticsAI]   -> Acquired Manifest: Send " + entry.amount + "x " + entry.item.getHoverName().getString() + " to " + entry.address);
+                                }
+                            }
+                        } 
+                    }
+                }
     
-					int townhallSpeed = Math.max(20, 100 - getSkillLevel(Skill.Athletics));
-					delay = townhallSpeed;
-					setHoldingClipboard(false); 
-					state = State.TO_WAREHOUSE;
-					break;
+                int townhallSpeed = Math.max(20, 100 - getSkillLevel(Skill.Athletics));
+                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] Townhall paperwork finished. Delay applied: " + townhallSpeed + " ticks. Moving to WAREHOUSE.");
+                delay = townhallSpeed;
+                setHoldingClipboard(false); 
+                state = State.TO_WAREHOUSE;
+                break;
 
             case TO_WAREHOUSE:
                 com.minecolonies.api.colony.buildings.IBuilding warehouse = job.getColony().getServerBuildingManager().getBuildings().values().stream()
@@ -151,74 +144,94 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                     currentTarget = warehouse.getPosition();
                     moveTo(currentTarget);
                     if (isAt(currentTarget)) {
-                        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] Arrived at WAREHOUSE");
+                        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] Successfully navigated to WAREHOUSE. Transitioning to AT_WAREHOUSE.");
                         state = State.AT_WAREHOUSE;
                         delay = 100;
                         setHoldingClipboard(true); 
+                        
+                        long now = job.getColony().getWorld().getGameTime();
+                        pendingPickups.removeIf(pickup -> now - pickup.requestTime > 12000);
                     }
                 } else {
-                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.warn("[LogisticsAI] No Warehouse found! Skipping to DEPOT");
+                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.warn("[LogisticsAI] WARNING: Warehouse not found in Colony Registry! Skipping excess scan, moving to DEPOT.");
                     state = State.TO_DEPOT;
                 }
                 break;
 
             case AT_WAREHOUSE:
-				if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] Scanning Warehouse inventory...");
-				IBuilding depot = job.getWorkBuilding();
-				if (depot != null) {
-					Map<ItemStorage, ItemStorage> allItems = new HashMap<>();
+                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] Executing AT_WAREHOUSE: Initializing deep scan of all Warehouse inventories...");
+                IBuilding depot = job.getWorkBuilding();
+                if (depot != null) {
+                    
+                    FreightDepotBlockEntity depotBE = null;
+                    if (job.getColony().getWorld() != null) {
+                        BlockEntity be = job.getColony().getWorld().getBlockEntity(depot.getPosition());
+                        if (be instanceof FreightDepotBlockEntity fbe) depotBE = fbe;
+                    }
+                    Map<net.minecraft.world.item.Item, Integer> itemCounts = new HashMap<>();
+                    Map<net.minecraft.world.item.Item, ItemStack> itemStash = new HashMap<>();
+                    for (IBuilding building : job.getColony().getServerBuildingManager().getBuildings().values()) {
+                        if (building.getSchematicName().contains("warehouse")) {
+                            Map<ItemStorage, ItemStorage> buildingItems = InventoryUtils.getAllItemsForProviders(building);
+                            for (ItemStorage storage : buildingItems.keySet()) {
+                                net.minecraft.world.item.Item item = storage.getItemStack().getItem();
+                                itemCounts.put(item, itemCounts.getOrDefault(item, 0) + storage.getAmount());
+                                if (!itemStash.containsKey(item)) itemStash.put(item, storage.getItemStack().copy());
+                            }
+                        }
+                    }
         
-					for (IBuilding building : job.getColony().getServerBuildingManager().getBuildings().values()) {
-						if (building.getSchematicName().contains("warehouse")) {
-						Map<ItemStorage, ItemStorage> buildingItems = InventoryUtils.getAllItemsForProviders(building);
-						for (Map.Entry<ItemStorage, ItemStorage> entry : buildingItems.entrySet()) {
-							ItemStorage storage = entry.getKey();
-							ItemStorage existing = allItems.get(storage);
-							if (existing != null) {
-							existing.setAmount(existing.getAmount() + storage.getAmount());
-							} else {
-								allItems.put(storage, storage); 
-							}
-						}
-					}
-				}
-        
-				int threshold = CCLConfig.INSTANCE.warehouseExcessThreshold.get();
-				if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] Scan complete. Checking for excess items...");
-        
-				for (ItemStorage storage : allItems.keySet()) {
-					String itemName = storage.getItemStack().getHoverName().getString();
-					long now = job.getColony().getWorld().getGameTime();
-    
-					pendingPickups.removeIf(pickup -> now - pickup.requestTime > 1200);
+                    int threshold = CCLConfig.INSTANCE.warehouseExcessThreshold.get();
+                    for (Map.Entry<net.minecraft.world.item.Item, Integer> entry : itemCounts.entrySet()) {
+                        ItemStack referenceStack = itemStash.get(entry.getKey());
+                        String itemName = referenceStack.getHoverName().getString();
+                        if (depotBE != null && depotBE.isItemProtected(referenceStack)) {
+                            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) {
+                                LOGGER.info("[LogisticsAI] Customs Protection Active: Skipping " + itemName + " (Imported recently).");
+                            }
+                            continue;
+                        }
 
-					int alreadyRequestedAmount = 0;
-					for (PendingPickup pickup : pendingPickups) {
-						if (pickup.itemName.equals(itemName)) alreadyRequestedAmount += pickup.count;
-					}
+                        long now = job.getColony().getWorld().getGameTime();
 
-					int trueExcess = storage.getAmount() - threshold;
-					int unhandledExcess = trueExcess - alreadyRequestedAmount;
-
-					if (unhandledExcess > 0) {
-						int amountToRequestThisTrip = Math.min(unhandledExcess, 64);
-        
-						ItemStack requestStack = storage.getItemStack().copy();
-						requestStack.setCount(amountToRequestThisTrip);
-        
-						com.minecolonies.api.colony.requestsystem.token.IToken<?> newReq = job.getCitizen().createRequest(new Stack(requestStack));
-						if (newReq != null) {
-							pendingPickups.add(new PendingPickup(itemName, amountToRequestThisTrip, now));
-							updateTracker(itemName, amountToRequestThisTrip, FreightTrackerModule.TrackStatus.REQUESTED);
-						}
-						break;
-					}
-				}
-			}
-    
-			setHoldingClipboard(false); 
-			state = State.TO_DEPOT;
-			break;
+                        int alreadyRequestedAmount = 0;
+                        for (PendingPickup pickup : pendingPickups) {
+                            if (pickup.itemName.equals(itemName)) alreadyRequestedAmount += pickup.count;
+                        }
+                        int trueExcess = entry.getValue() - threshold;
+                        int unhandledExcess = trueExcess - alreadyRequestedAmount;
+                        if (unhandledExcess > 0) {
+                            int maxStackSize = referenceStack.getMaxStackSize();
+                            int maxPackageCapacity = maxStackSize * 9;
+                            if (alreadyRequestedAmount >= maxPackageCapacity) {
+                                continue; 
+                            }
+                            int amountToRequestThisTrip = Math.min(unhandledExcess, maxStackSize);
+                            int spaceLeftInPackage = maxPackageCapacity - alreadyRequestedAmount;
+                            amountToRequestThisTrip = Math.min(amountToRequestThisTrip, spaceLeftInPackage);
+                            if (amountToRequestThisTrip <= 0) continue;
+                            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) {
+                                LOGGER.info("[LogisticsAI] EXCESS DETECTED: " + itemName + " | Total in DB: " + entry.getValue() + " | Threshold: " + threshold + " | Pending Pickups: " + alreadyRequestedAmount + " | Actionable Excess: " + unhandledExcess);
+                            }
+                            ItemStack requestStack = referenceStack.copy();
+                            requestStack.setCount(amountToRequestThisTrip);
+                            IToken<?> newReq = job.getCitizen().createRequest(new Stack(requestStack));
+                            if (newReq != null) {
+                                pendingPickups.add(new PendingPickup(itemName, amountToRequestThisTrip, now));
+                                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] -> Successfully spawned internal Request Token for " + amountToRequestThisTrip + "x " + itemName);
+                                delay = 10;
+                                return;
+                            } else {
+                                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.warn("[LogisticsAI] -> FAILED to spawn Request Token for " + itemName + "! Skipping to next item to prevent loop.");
+                                continue;
+                            }
+                        }
+                    }
+                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] Warehouse scan finished. No actionable excess items remaining.");
+                }
+                setHoldingClipboard(false); 
+                state = State.TO_DEPOT;
+                break;
 
             case TO_DEPOT:
                 com.minecolonies.api.colony.buildings.IBuilding depotWork = job.getWorkBuilding();
@@ -226,7 +239,7 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                     currentTarget = depotWork.getPosition();
                     moveTo(currentTarget);
                     if (isAt(currentTarget)) {
-                        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] Arrived at DEPOT");
+                        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] Successfully navigated to DEPOT. Transitioning to AT_DEPOT.");
                         state = State.AT_DEPOT;
                         delay = 200;
                         setHoldingClipboard(true); 
@@ -235,40 +248,49 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                 break;
 
             case AT_DEPOT:
-				if (!clipboardCacheB.isEmpty() && job.getColony().getWorld() != null) {
-					BlockEntity be = job.getColony().getWorld().getBlockEntity(currentTarget);
-					if (be instanceof FreightDepotBlockEntity depotBE) {
+                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] Executing AT_DEPOT: Processing ClipboardCacheB (Count: " + clipboardCacheB.size() + ")");
+                if (!clipboardCacheB.isEmpty() && job.getColony().getWorld() != null) {
+                    BlockEntity be = job.getColony().getWorld().getBlockEntity(currentTarget);
+                    if (be instanceof FreightDepotBlockEntity depotBE) {
             
-						for (ManifestEntry order : clipboardCacheB) {
-							com.ogtenzohd.cclogistics.util.LogisticsBridge.sendPackage(
-							depotBE.getStockTicker(), 
-							order.item, 
-							order.item.getCount(), 
-							order.address, 
-							null
-							);
-						}
+                        for (ManifestEntry order : clipboardCacheB) {
+                            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) {
+                                LOGGER.info("[LogisticsAI]   -> Submitting to Logistics Bridge: " + order.amount + "x " + order.item.getHoverName().getString() + " destined for " + order.address);
+                            }
+                            com.ogtenzohd.cclogistics.util.LogisticsBridge.sendPackage(
+                                depotBE.getStockTicker(), 
+                                order.item, 
+                                order.amount,
+                                order.address, 
+                                null
+                            );
+                        }
             
-						if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) {
-							LOGGER.info("[LogisticsAI] Pushed " + clipboardCacheB.size() + " manifests to the Create Network! Trains are moving!");
-						}
+                        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) {
+                            LOGGER.info("[LogisticsAI] SUCCESS: Pushed " + clipboardCacheB.size() + " manifests to the Create Network! Trains are moving!");
+                        }
             
-						clipboardCacheB.clear();
-					}
-				}
+                        clipboardCacheB.clear();
+                    } else {
+                        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.warn("[LogisticsAI] ERROR: BlockEntity at Depot is NOT a FreightDepotBlockEntity! Bridge execution aborted.");
+                    }
+                } else if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) {
+                    LOGGER.info("[LogisticsAI] ClipboardCacheB is empty. No packages to route this cycle.");
+                }
 
-				if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] Resting at Depot...");
-					state = State.IDLE;
-					int baseDelay = CCLConfig.INSTANCE.coordinatorCooldown.get();
-				if (CCLConfig.INSTANCE.enableSkillScaling.get()) {
-					int intel = getSkillLevel(Skill.Intelligence);
-					int reduction = intel * CCLConfig.INSTANCE.cooldownReductionPerIntel.get();
-					delay = Math.max(20, baseDelay - reduction);
-				} else {
-					delay = baseDelay;
-				}
-				break;
-		}
+                int baseDelay = CCLConfig.INSTANCE.coordinatorCooldown.get();
+                if (CCLConfig.INSTANCE.enableSkillScaling.get()) {
+                    int intel = getSkillLevel(Skill.Intelligence);
+                    int reduction = intel * CCLConfig.INSTANCE.cooldownReductionPerIntel.get();
+                    delay = Math.max(20, baseDelay - reduction);
+                } else {
+                    delay = baseDelay;
+                }
+                
+                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] Resting at Depot for " + delay + " ticks before next cycle.");
+                state = State.IDLE;
+                break;
+        }
     }
     
     private ItemStack getClipboard() {
@@ -278,8 +300,6 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
         }
         return new ItemStack(item);
     }
-	
-	
     
     private void setHoldingClipboard(boolean holding) {
         job.getCitizen().getEntity().ifPresent(entity -> {
@@ -304,14 +324,15 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
         if (currentTarget != null) {
             tag.put("Target", NbtUtils.writeBlockPos(currentTarget));
         }
-		net.minecraft.nbt.ListTag cacheBList = new net.minecraft.nbt.ListTag();
-		for (ManifestEntry entry : clipboardCacheB) {
-		CompoundTag entryTag = new CompoundTag();
-		entryTag.put("Item", entry.item.save(provider));
-		entryTag.putString("Address", entry.address);
-		cacheBList.add(entryTag);
-		}
-		tag.put("ClipboardCacheB", cacheBList);
+        net.minecraft.nbt.ListTag cacheBList = new net.minecraft.nbt.ListTag();
+        for (ManifestEntry entry : clipboardCacheB) {
+            CompoundTag entryTag = new CompoundTag();
+            entryTag.put("Item", entry.item.save(provider));
+            entryTag.putString("Address", entry.address);
+            entryTag.putInt("Amount", entry.amount);
+            cacheBList.add(entryTag);
+        }
+        tag.put("ClipboardCacheB", cacheBList);
     }
 
     public void readData(CompoundTag tag, HolderLookup.Provider provider) {
@@ -324,18 +345,19 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
         if (tag.contains("Target")) {
             currentTarget = NbtUtils.readBlockPos(tag, "Target").orElse(null);
         }
-		if (tag.contains("ClipboardCacheB")) {
-			clipboardCacheB.clear();
-			net.minecraft.nbt.ListTag list = tag.getList("ClipboardCacheB", net.minecraft.nbt.Tag.TAG_COMPOUND);
-			for (int i = 0; i < list.size(); i++) {
-				CompoundTag entryTag = list.getCompound(i);
-				ItemStack item = ItemStack.parse(provider, entryTag.getCompound("Item")).orElse(ItemStack.EMPTY);
-				String address = entryTag.getString("Address");
-				if (!item.isEmpty()) {
-					clipboardCacheB.add(new ManifestEntry(item, address));
-				}
-			}
-		}
+        if (tag.contains("ClipboardCacheB")) {
+            clipboardCacheB.clear();
+            net.minecraft.nbt.ListTag list = tag.getList("ClipboardCacheB", net.minecraft.nbt.Tag.TAG_COMPOUND);
+            for (int i = 0; i < list.size(); i++) {
+                CompoundTag entryTag = list.getCompound(i);
+                ItemStack item = ItemStack.parse(provider, entryTag.getCompound("Item")).orElse(ItemStack.EMPTY);
+                String address = entryTag.getString("Address");
+                int amount = entryTag.getInt("Amount");
+                if (!item.isEmpty()) {
+                    clipboardCacheB.add(new ManifestEntry(item, address, amount));
+                }
+            }
+        }
     }
     
     private void moveTo(BlockPos pos) {

@@ -18,7 +18,7 @@
   "cclogistics:packer_agent.job.desc": "The Packer Agent moves items between the Freight Depot and the Warehouse, boxing and unboxing them.",
   "cclogistics:freight_inspector.job.desc": "The Freight Inspector monitors incoming and outgoing logistics tasks.",
   
-  "cclogistics:logistics_coordinator.skills.desc": "Benefits from high Intelligence and Athletics to process requests faster.",
-  "cclogistics:packer_agent.skills.desc": "Benefits from high Athletics and Strength to move packages quickly.",
-  "cclogistics:freight_inspector.skills.desc": "Benefits from high Intelligence to accurately inspect manifests."
+  "cclogistics:logistics_coordinator.skills.desc": "Benefits from high Knowledge and Agility to process requests faster.",
+  "cclogistics:packer_agent.skills.desc": "Benefits from high Stamina and Agility to move packages quickly.",
+  "cclogistics:freight_inspector.skills.desc": "Benefits from high Intelligence and Knowledge to accurately inspect manifests."
 }
