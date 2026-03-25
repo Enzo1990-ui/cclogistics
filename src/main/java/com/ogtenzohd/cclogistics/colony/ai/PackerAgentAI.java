@@ -96,6 +96,9 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
     }
 
     public void tick() {
+        job.getCitizen().getEntity().ifPresent(entity -> {
+            entity.setPathfindingMalus(net.minecraft.world.level.pathfinder.PathType.RAIL, -1.0F);
+        });
         if (activeRole == null) {
             activeRole = job.getRole();
             if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) {
@@ -116,7 +119,7 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
         if (!holdingItems.isEmpty()) {
             job.getCitizen().getEntity().ifPresent(entity -> {
                 if (entity.getItemInHand(InteractionHand.MAIN_HAND).isEmpty()) {
-                    entity.setItemInHand(InteractionHand.MAIN_HAND, holdingItems.get(0).copy());
+                    entity.setItemInHand(InteractionHand.MAIN_HAND, holdingItems.getFirst().copy());
                 }
             });
         }
@@ -409,7 +412,7 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                         delay = 40;
                     }
                 } else {
-                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS) && delay % 20 == 0) LOGGER.info("[PackerAI-ENHANCED] Waiting... AI cannot see the train within 30 blocks.");
+                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS) && delay % 20 == 0) LOGGER.info("[PackerAI-ENHANCED] Waiting... AI cannot see the train within 10 blocks.");
                     delay = 40;
                 }
                 break;
@@ -605,7 +608,7 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
     private CarriageContraptionEntity findParkedTrain() {
         if (job.getColony().getWorld() == null || job.getWorkBuilding() == null) return null;
         
-        AABB searchArea = new AABB(job.getWorkBuilding().getPosition()).inflate(30.0);
+        AABB searchArea = new AABB(job.getWorkBuilding().getPosition()).inflate(10.0);
         List<CarriageContraptionEntity> carriages = job.getColony().getWorld().getEntitiesOfClass(CarriageContraptionEntity.class, searchArea);
         
         CarriageContraptionEntity bestCarriage = null;

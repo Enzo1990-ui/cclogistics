@@ -1,26 +1,18 @@
 package com.ogtenzohd.cclogistics.blocks.custom.freight_depot;
 
+import com.minecolonies.api.MinecoloniesAPIProxy;
+import com.minecolonies.api.colony.IColony;
+import com.minecolonies.api.colony.buildings.IBuilding;
+import com.minecolonies.api.colony.requestsystem.request.IRequest;
+import com.mojang.logging.LogUtils;
 import com.ogtenzohd.cclogistics.blocks.SmartColonyBlockEntity;
+import com.ogtenzohd.cclogistics.blocks.custom.freight_depot.menu.FreightDepotMenu;
+import com.ogtenzohd.cclogistics.colony.ColonyLogisticsBehaviour;
 import com.ogtenzohd.cclogistics.colony.buildings.FreightDepotBuilding;
-import com.ogtenzohd.cclogistics.config.CCLConfig;
 import com.ogtenzohd.cclogistics.registration.CCLRegistration;
 import com.ogtenzohd.cclogistics.util.LogisticsRequestHelper;
-import com.ogtenzohd.cclogistics.colony.ColonyLogisticsBehaviour;
-import com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule;
-import com.minecolonies.api.colony.IColonyManager;
-import com.minecolonies.api.crafting.IRecipeStorage;
-
-import com.minecolonies.api.colony.IColony;
-import com.minecolonies.api.colony.requestsystem.request.IRequest;
-import com.minecolonies.api.MinecoloniesAPIProxy;
-import com.minecolonies.api.colony.requestsystem.requestable.Stack;
-import com.minecolonies.api.colony.buildings.IBuilding;
-
-import com.ogtenzohd.cclogistics.blocks.custom.freight_depot.menu.FreightDepotMenu;
-
 import com.simibubi.create.content.logistics.stockTicker.StockTickerBlockEntity;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
-
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -41,14 +33,8 @@ import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.ItemStackHandler;
 import org.slf4j.Logger;
-import com.mojang.logging.LogUtils;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements MenuProvider {
 
@@ -311,7 +297,7 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
     private boolean checkForParkedTrain() {
         if (level == null) return false;
         
-        net.minecraft.world.phys.AABB searchArea = new net.minecraft.world.phys.AABB(worldPosition).inflate(30.0);
+        net.minecraft.world.phys.AABB searchArea = new net.minecraft.world.phys.AABB(worldPosition).inflate(10.0);
         
         java.util.List<com.simibubi.create.content.trains.entity.CarriageContraptionEntity> trains = 
             level.getEntitiesOfClass(com.simibubi.create.content.trains.entity.CarriageContraptionEntity.class, searchArea);
