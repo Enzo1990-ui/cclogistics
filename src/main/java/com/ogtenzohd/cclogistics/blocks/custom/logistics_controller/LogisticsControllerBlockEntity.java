@@ -31,7 +31,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 public class LogisticsControllerBlockEntity extends SmartBlockEntity implements MenuProvider {
@@ -39,13 +38,9 @@ public class LogisticsControllerBlockEntity extends SmartBlockEntity implements 
     private List<BuildingRoutingEntry> packages = new ArrayList<>();
     private BlockPos tickerLink = null;
     private int timer = 0;
-    
     private List<String> clientAvailableBuildings = new ArrayList<>();
-
     private final HashSet<Object> activeRequestIds = new HashSet<>();
-    private final HashSet<Object> failedRequestIds = new HashSet<>();
     private final HashSet<String> sentRequestIds = new HashSet<>();
-
     protected final ContainerData data = new ContainerData() {
         @Override public int get(int pIndex) { return 0; }
         @Override public void set(int pIndex, int pValue) {}
@@ -62,12 +57,11 @@ public class LogisticsControllerBlockEntity extends SmartBlockEntity implements 
     @Override
     public void tick() {
         super.tick();
-        if (level == null || level.isClientSide) return;
-        
-        timer++;
-        if (timer >= 100) {
-            timer = 0;
-            performRequest();
+        if (level != null && !level.isClientSide) {
+            
+            if (level.getGameTime() % 100 == 0) {
+                performRequest();
+            }
         }
     }
 
@@ -85,7 +79,6 @@ public class LogisticsControllerBlockEntity extends SmartBlockEntity implements 
             colony,
             ticker,
             this.activeRequestIds,
-            this.failedRequestIds,
             this.sentRequestIds,
             (request) -> PackageRouting.resolvePackageName(this.packages, request),
             null,
@@ -145,6 +138,14 @@ public class LogisticsControllerBlockEntity extends SmartBlockEntity implements 
         ListTag list = new ListTag();
         for (BuildingRoutingEntry p : packages) list.add(p.serialize());
         tag.put("Packages", list);
+        ListTag activeList = new ListTag();
+        for (Object id : activeRequestIds) {
+            CompoundTag activeTag = new CompoundTag();
+            activeTag.putString("id", id.toString());
+            activeList.add(activeTag);
+        }
+        tag.put("ActiveRequestIds", activeList);
+        
         ListTag sentList = new ListTag();
         for (String id : sentRequestIds) {
             CompoundTag sentTag = new CompoundTag();
@@ -167,6 +168,14 @@ public class LogisticsControllerBlockEntity extends SmartBlockEntity implements 
                 packages.add(BuildingRoutingEntry.deserialize(list.getCompound(i)));
             }
         }
+        if (tag.contains("ActiveRequestIds")) {
+            activeRequestIds.clear();
+            ListTag activeList = tag.getList("ActiveRequestIds", Tag.TAG_COMPOUND);
+            for (int i = 0; i < activeList.size(); i++) {
+                activeRequestIds.add(activeList.getCompound(i).getString("id"));
+            }
+        }
+        
         if (tag.contains("SentRequestIds")) {
             sentRequestIds.clear();
             ListTag sentList = tag.getList("SentRequestIds", Tag.TAG_COMPOUND);

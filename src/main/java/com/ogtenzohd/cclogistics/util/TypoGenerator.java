@@ -1,6 +1,9 @@
 package com.ogtenzohd.cclogistics.util;
 
 import net.minecraft.util.RandomSource;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Collections;
 
 public class TypoGenerator {
 
@@ -9,11 +12,20 @@ public class TypoGenerator {
         {"tion", "shun"}, {"sion", "shun"}, {"ght", "te"}, {"ea", "ee"}, {"ee", "ea"},
         {"oo", "u"}, {"u", "oo"}, {"ou", "ow"}, {"ow", "ou"}, {"ie", "ei"}, {"ei", "ie"}
     };
+    private static final Map<String, String> TYPO_CACHE = Collections.synchronizedMap(
+        new LinkedHashMap<String, String>(100, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, String> eldest) {
+                return size() > 200; 
+            }
+        }
+    );
 
     public static String generateSpellingMistake(String originalText, int intelligence, int baseChance, RandomSource rand) {
         if (originalText == null || originalText.length() <= 3) return originalText;
-
-        // CHANCE PER LETTER. - maybe a bit extreme but its more fun! 
+        if (TYPO_CACHE.containsKey(originalText)) {
+            return TYPO_CACHE.get(originalText);
+        }
         int mistakeChancePerLetter = Math.max(1, baseChance - (intelligence * 3));
         int mistakesToMake = 0;
         
@@ -22,8 +34,10 @@ public class TypoGenerator {
                 mistakesToMake++; 
             }
         }
-
-        if (mistakesToMake == 0) return originalText;
+        if (mistakesToMake == 0) {
+            TYPO_CACHE.put(originalText, originalText);
+            return originalText;
+        }
 
         StringBuilder sb = new StringBuilder(originalText);
 
@@ -76,7 +90,10 @@ public class TypoGenerator {
             }
         }
 
-        return sb.toString();
+        String finalResult = sb.toString();
+        TYPO_CACHE.put(originalText, finalResult);
+        
+        return finalResult;
     }
 
     private static void applyTypo(StringBuilder sb, RandomSource rand) {

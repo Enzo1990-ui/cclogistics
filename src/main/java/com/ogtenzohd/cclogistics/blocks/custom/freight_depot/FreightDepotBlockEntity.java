@@ -47,11 +47,10 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
     private BlockPos manualTickerPos = null;
     
     private final Set<Object> activeRequestIds = new HashSet<>();
-    private final Set<Object> failedRequestIds = new HashSet<>();
     private final List<String> pendingIncomingLogs = new ArrayList<>();
     private final List<String> pendingOutgoingLogs = new ArrayList<>();
     private final Map<Item, Long> protectedImports = new HashMap<>();
-	private final Set<String> sentRequestIds = new HashSet<>();
+    private final Set<String> sentRequestIds = new HashSet<>();
     
     private final List<com.ogtenzohd.cclogistics.colony.ai.LogisticsCoordinatorAI.ManifestEntry> cacheA = new ArrayList<>();
 
@@ -104,6 +103,11 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
     public void tick() {
         super.tick(); 
         if (level != null && !level.isClientSide) {
+            if (level.getGameTime() % 1200 == 0) {
+                long currentTime = level.getGameTime();
+                boolean removed = protectedImports.entrySet().removeIf(entry -> currentTime >= entry.getValue());
+                if (removed) setChanged();
+            }
             
             if (level.getGameTime() % 100 == 0) {
                 coordinateLogistics();
@@ -179,7 +183,6 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
             colony,
             ticker,
             this.activeRequestIds,
-            this.failedRequestIds,
             this.sentRequestIds,
             (request) -> resolveAddress(request), 
             this.pendingIncomingLogs,
@@ -339,6 +342,10 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
 
     public void cacheManifestOrder(ItemStack item, int amount, String targetAddress) {
         if (item.isEmpty() || amount <= 0) return;
+        if (this.cacheA.size() >= 10) {
+            this.cacheA.remove(0);
+        }
+        
         ItemStack cachedStack = item.copy();
         cachedStack.setCount(1);
         this.cacheA.add(new com.ogtenzohd.cclogistics.colony.ai.LogisticsCoordinatorAI.ManifestEntry(cachedStack, targetAddress, amount));
@@ -362,7 +369,6 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
             protectionList.add(entryTag);
         }
         tag.put("ProtectedItems", protectionList);
-        
         ListTag cacheAList = new ListTag();
         for (com.ogtenzohd.cclogistics.colony.ai.LogisticsCoordinatorAI.ManifestEntry entry : cacheA) {
             CompoundTag entryTag = new CompoundTag();
@@ -372,7 +378,15 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
             cacheAList.add(entryTag);
         }
         tag.put("CacheA", cacheAList);
-		ListTag sentIds = new ListTag();
+        ListTag activeIds = new ListTag();
+        for (Object id : activeRequestIds) {
+            CompoundTag t = new CompoundTag();
+            t.putString("id", id.toString());
+            activeIds.add(t);
+        }
+        tag.put("ActiveRequestIds", activeIds);
+
+        ListTag sentIds = new ListTag();
         for (String id : sentRequestIds) {
             CompoundTag t = new CompoundTag();
             t.putString("id", id);
@@ -418,7 +432,16 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
                 }
             }
         }
-		if (tag.contains("SentRequestIds")) {
+        
+        if (tag.contains("ActiveRequestIds")) {
+            activeRequestIds.clear();
+            ListTag list = tag.getList("ActiveRequestIds", Tag.TAG_COMPOUND);
+            for (int i = 0; i < list.size(); i++) {
+                activeRequestIds.add(list.getCompound(i).getString("id"));
+            }
+        }
+
+        if (tag.contains("SentRequestIds")) {
             sentRequestIds.clear();
             ListTag list = tag.getList("SentRequestIds", Tag.TAG_COMPOUND);
             for (int i = 0; i < list.size(); i++) {

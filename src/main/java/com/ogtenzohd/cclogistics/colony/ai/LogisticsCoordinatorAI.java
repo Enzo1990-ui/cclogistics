@@ -324,6 +324,7 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
         if (currentTarget != null) {
             tag.put("Target", NbtUtils.writeBlockPos(currentTarget));
         }
+        
         net.minecraft.nbt.ListTag cacheBList = new net.minecraft.nbt.ListTag();
         for (ManifestEntry entry : clipboardCacheB) {
             CompoundTag entryTag = new CompoundTag();
@@ -333,6 +334,15 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
             cacheBList.add(entryTag);
         }
         tag.put("ClipboardCacheB", cacheBList);
+        net.minecraft.nbt.ListTag pickupsList = new net.minecraft.nbt.ListTag();
+        for (PendingPickup pickup : pendingPickups) {
+            CompoundTag pTag = new CompoundTag();
+            pTag.putString("Item", pickup.itemName);
+            pTag.putInt("Count", pickup.count);
+            pTag.putLong("Time", pickup.requestTime);
+            pickupsList.add(pTag);
+        }
+        tag.put("PendingPickups", pickupsList);
     }
 
     public void readData(CompoundTag tag, HolderLookup.Provider provider) {
@@ -356,6 +366,18 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                 if (!item.isEmpty()) {
                     clipboardCacheB.add(new ManifestEntry(item, address, amount));
                 }
+            }
+        }
+        if (tag.contains("PendingPickups")) {
+            pendingPickups.clear();
+            net.minecraft.nbt.ListTag list = tag.getList("PendingPickups", net.minecraft.nbt.Tag.TAG_COMPOUND);
+            for (int i = 0; i < list.size(); i++) {
+                CompoundTag pTag = list.getCompound(i);
+                pendingPickups.add(new PendingPickup(
+                    pTag.getString("Item"),
+                    pTag.getInt("Count"),
+                    pTag.getLong("Time")
+                ));
             }
         }
     }

@@ -36,7 +36,6 @@ public class LogisticsRequestHelper {
             IColony colony,
             StockTickerBlockEntity ticker,
             Set<Object> activeRequestIds,
-            Set<Object> failedRequestIds,
             Set<String> sentRequestIds,
             Function<IRequest<?>, String> addressResolver,
             List<String> auditLog,
@@ -94,6 +93,7 @@ public class LogisticsRequestHelper {
             }
             activeRequestIds.addAll(currentIds);
         }
+        
         List<BigItemStack> networkInv = LogisticsBridge.getNetworkInventory(ticker);
         Map<net.minecraft.world.item.Item, Integer> virtualStock = new HashMap<>();
         for (BigItemStack bis : networkInv) {
@@ -131,8 +131,11 @@ public class LogisticsRequestHelper {
                 if (amountNeeded <= 0) amountNeeded = extractAmountTargeted(innerReq);
                 if (amountNeeded <= 0) amountNeeded = 1; 
 
-                if (type.contains("ToolRequest") || type.contains("ArmorRequest")) {
-                    itemToSend = solveByTierTargeted(innerReq, networkInv);
+                if (type.contains("ToolRequest")) {
+                    itemToSend = solveByTierTargeted(innerReq, networkInv, "getMiningLevel");
+                    amountNeeded = 1;
+                } else if (type.contains("ArmorRequest")) {
+                    itemToSend = solveByTierTargeted(innerReq, networkInv, "getLevel");
                     amountNeeded = 1;
                 } else if (type.contains("ItemStackRequest") || type.contains("MinStackRequest") || type.contains("ResourceRequest")) {
                     itemToSend = extractStackTargeted(innerReq);
@@ -143,8 +146,14 @@ public class LogisticsRequestHelper {
                 }
 
                 if (itemToSend.isEmpty()) continue;
+                
+                if (canColonyCraft(colony, itemToSend)) {
+                    continue; 
+                }
+                
                 int maxPackageCapacity = itemToSend.getMaxStackSize() * 9;
                 if (amountNeeded > maxPackageCapacity) amountNeeded = maxPackageCapacity;
+                
                 if (sentRequestIds != null && sentRequestIds.contains(id)) {
                     if (trackerUpdater != null) trackerUpdater.track(id, itemToSend.getHoverName().getString(), amountNeeded, FreightTrackerModule.TrackStatus.ACCEPTED, "Dispatched");
                     continue;
@@ -177,6 +186,29 @@ public class LogisticsRequestHelper {
                 LOGGER.error("Failed to process request ID: " + id, e);
             }
         }
+    }
+
+    private static boolean canColonyCraft(IColony colony, ItemStack stack) {
+        if (stack.isEmpty()) return false;
+        
+        if (stack.getMaxDamage() > 0 || !stack.isStackable()) {
+            return false;
+        }
+        
+        try {
+            var recipes = com.minecolonies.api.colony.IColonyManager.getInstance().getRecipeManager().getRecipes();
+            for (Object storageObj : recipes.values()) {
+                if (storageObj instanceof com.minecolonies.api.crafting.IRecipeStorage storage) {
+                    if (storage.getPrimaryOutput() != null && storage.getPrimaryOutput().getItem() == stack.getItem()) return true;
+                    if (storage.getAlternateOutputs() != null) {
+                        for (ItemStack alt : storage.getAlternateOutputs()) {
+                            if (alt != null && alt.getItem() == stack.getItem()) return true;
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {}
+        return false;
     }
 
     private static ItemStack extractStackTargeted(Object obj) {
@@ -282,13 +314,53 @@ public class LogisticsRequestHelper {
         return 0;
     }
 
-    private static ItemStack solveByTierTargeted(Object innerReq, List<BigItemStack> networkInv) {
-        for (BigItemStack bis : networkInv) {
-            if (!bis.stack.isEmpty() && bis.stack.isDamageableItem()) {
-                return bis.stack.copyWithCount(1);
+    private static ItemStack solveByTierTargeted(Object innerReq, List<BigItemStack> networkInv, String checkMethodName) {
+        try {
+            Object equipmentType = getFieldByName(innerReq, "equipmentType");
+            if (equipmentType == null) equipmentType = getFieldByName(innerReq, "type");
+            if (equipmentType == null) equipmentType = getFieldByName(innerReq, "toolType"); 
+            
+            if (equipmentType == null) return ItemStack.EMPTY;
+
+            int minLevel = 0;
+            int maxLevel = 99;
+            try { Object minObj = getFieldByName(innerReq, "minLevel"); if (minObj != null) minLevel = (int) minObj; } catch (Exception e) {}
+            try { Object maxObj = getFieldByName(innerReq, "maxLevel"); if (maxObj != null) maxLevel = (int) maxObj; } catch (Exception e) {}
+
+            Method levelCheckMethod = null;
+            try { levelCheckMethod = equipmentType.getClass().getMethod(checkMethodName, ItemStack.class); } catch (Exception e) {}
+            if (levelCheckMethod == null) try { levelCheckMethod = equipmentType.getClass().getMethod("getLevel", ItemStack.class); } catch (Exception e) {}
+            if (levelCheckMethod == null) try { levelCheckMethod = equipmentType.getClass().getMethod("getMiningLevel", ItemStack.class); } catch (Exception e) {}
+
+            List<ItemStack> candidates = new ArrayList<>();
+            if (levelCheckMethod != null) {
+                for (BigItemStack bis : networkInv) {
+                    ItemStack stack = bis.stack;
+                    if (stack.isEmpty()) continue;
+                    try {
+                        int itemTier = (int) levelCheckMethod.invoke(equipmentType, stack);
+                        if (itemTier >= minLevel && itemTier <= maxLevel) candidates.add(stack);
+                    } catch (Exception e) {}
+                }
             }
+
+            if (candidates.isEmpty()) return ItemStack.EMPTY;
+
+            final Method finalMethod = levelCheckMethod;
+            final Object finalEquipmentType = equipmentType;
+
+            candidates.sort((a, b) -> {
+                try {
+                    int tierA = (int) finalMethod.invoke(finalEquipmentType, a);
+                    int tierB = (int) finalMethod.invoke(finalEquipmentType, b);
+                    return Integer.compare(tierB, tierA); 
+                } catch (Exception e) { return 0; }
+            });
+
+            return candidates.get(0).copyWithCount(1);
+        } catch (Exception e) { 
+            return ItemStack.EMPTY; 
         }
-        return ItemStack.EMPTY;
     }
 
     private static ItemStack solveFoodTargeted(List<BigItemStack> networkInv) {
@@ -300,11 +372,14 @@ public class LogisticsRequestHelper {
         return ItemStack.EMPTY;
     }
 
-    private static int getStockCount(List<BigItemStack> inv, ItemStack needed) {
-        int count = 0;
-        for (BigItemStack bis : inv) {
-            if (bis.stack.getItem() == needed.getItem()) count += bis.count;
+    private static Object getFieldByName(Object target, String name) {
+        for (Class<?> c = target.getClass(); c != null; c = c.getSuperclass()) {
+            try {
+                Field f = c.getDeclaredField(name);
+                f.setAccessible(true);
+                return f.get(target);
+            } catch (Exception e) {}
         }
-        return count;
+        return null;
     }
 }
