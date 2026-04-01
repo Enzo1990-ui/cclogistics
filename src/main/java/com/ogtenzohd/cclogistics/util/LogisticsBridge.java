@@ -1,7 +1,9 @@
 package com.ogtenzohd.cclogistics.util;
 
+import com.mojang.logging.LogUtils;
 import com.ogtenzohd.cclogistics.accessor.IAutomatedTicker;
 import com.ogtenzohd.cclogistics.compat.CFLCompat;
+import com.ogtenzohd.cclogistics.config.CCLConfig;
 import com.simibubi.create.content.logistics.BigItemStack;
 import com.simibubi.create.content.logistics.packager.PackagerBlock;
 import com.simibubi.create.content.logistics.packager.PackagerBlockEntity;
@@ -17,10 +19,11 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.items.IItemHandler;
+import org.apache.commons.lang3.mutable.MutableInt;
+import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.slf4j.Logger;
-import com.mojang.logging.LogUtils;
-import com.ogtenzohd.cclogistics.config.CCLConfig;
 
+import java.lang.reflect.Method;
 import java.util.*;
 
 public class LogisticsBridge {
@@ -39,7 +42,7 @@ public class LogisticsBridge {
             }
 
             Collection<LogisticallyLinkedBehaviour> networkLinks = LogisticallyLinkedBehaviour.getAllPresent(link.freqId, false);
-            
+
             if (networkLinks == null || networkLinks.isEmpty()) {
                 if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE)) LOGGER.warn("[Bridge-CheckStock] Network has no links for freqId: " + link.freqId);
                 return new BigItemStack(wanted, 0);
@@ -50,17 +53,17 @@ public class LogisticsBridge {
 
             for (LogisticallyLinkedBehaviour behaviour : networkLinks) {
                 if (behaviour == null || behaviour.blockEntity == null) continue;
-                
+
                 if (behaviour.blockEntity instanceof PackagerBlockEntity packager) {
                     if (visitedPackagers.add(packager.getBlockPos())) {
                         totalCount += countInPackager(packager, wanted);
                     }
                 }
-                
+
                 else if (behaviour.blockEntity instanceof PackagerLinkBlockEntity linkBE) {
                     PackagerBlockEntity foundPackager = findConnectedPackager(linkBE);
                     if (foundPackager != null) {
-                         if (visitedPackagers.add(foundPackager.getBlockPos())) {
+                        if (visitedPackagers.add(foundPackager.getBlockPos())) {
                             totalCount += countInPackager(foundPackager, wanted);
                         }
                     }
@@ -77,7 +80,7 @@ public class LogisticsBridge {
     private static PackagerBlockEntity findConnectedPackager(PackagerLinkBlockEntity linkBE) {
         Level level = linkBE.getLevel();
         BlockPos linkPos = linkBE.getBlockPos();
-        
+
         for (Direction d : Direction.values()) {
             BlockEntity neighbor = level.getBlockEntity(linkPos.relative(d));
             if (neighbor instanceof PackagerBlockEntity packager) {
@@ -120,7 +123,7 @@ public class LogisticsBridge {
 
         try {
             LogisticallyLinkedBehaviour link = ticker.getBehaviour(LogisticallyLinkedBehaviour.TYPE);
-            
+
             if (link == null || link.freqId == null) {
                 if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE)) LOGGER.error("[Bridge-GetNetwork] FAILED: StockTicker has no Frequency ID! Is it linked to the network?");
                 return allItems;
@@ -136,7 +139,7 @@ public class LogisticsBridge {
 
             for (LogisticallyLinkedBehaviour behaviour : networkLinks) {
                 if (behaviour == null || behaviour.blockEntity == null) continue;
-                
+
                 PackagerBlockEntity packagerToScan = null;
 
                 if (behaviour.blockEntity instanceof PackagerBlockEntity p) {
@@ -146,7 +149,7 @@ public class LogisticsBridge {
                 }
 
                 if (packagerToScan != null && visitedPackagers.add(packagerToScan.getBlockPos())) {
-                     if (packagerToScan.targetInventory != null) {
+                    if (packagerToScan.targetInventory != null) {
                         try {
                             Object rawInv = packagerToScan.targetInventory.getInventory();
                             IItemHandler handler = null;
@@ -162,7 +165,7 @@ public class LogisticsBridge {
                                 for (int i = 0; i < handler.getSlots(); i++) {
                                     ItemStack s = handler.getStackInSlot(i);
                                     if (!s.isEmpty()) {
-                                        String key = s.getDescriptionId(); 
+                                        String key = s.getDescriptionId();
                                         if (consolidated.containsKey(key)) {
                                             consolidated.get(key).count += s.getCount();
                                         } else {
@@ -178,9 +181,9 @@ public class LogisticsBridge {
         } catch (Exception e) {
             if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE)) LOGGER.error("[Bridge-GetNetwork] CRASH encountered while scanning network inventory!", e);
         }
-        
+
         allItems.addAll(consolidated.values());
-        
+
         if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE)) LOGGER.info("[Bridge-GetNetwork] SUCCESS: Scanned network and found " + allItems.size() + " unique item types.");
         return allItems;
     }
@@ -191,7 +194,7 @@ public class LogisticsBridge {
 
     public static boolean sendPackage(StockTickerBlockEntity ticker, Object token, int countNeeded, String address, PackageOrder dummyOrder) {
         if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE)) LOGGER.info("[Bridge-Send] sendPackage invoked for Address: " + address);
-        
+
         if (!(token instanceof ItemStack stack) || stack.isEmpty()) {
             if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE)) LOGGER.error("[Bridge-Send] FAILED: Token is invalid or empty!");
             return false;
@@ -200,19 +203,25 @@ public class LogisticsBridge {
         CFLCompat.init();
         if (CFLCompat.cflLoaded) {
             if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE)) LOGGER.info("[Bridge-Send] CFL Detected! Bypassing Native LogisticsManager...");
+
             LogisticallyLinkedBehaviour link = ticker.getBehaviour(LogisticallyLinkedBehaviour.TYPE);
             if (link != null && link.freqId != null) {
-                 ItemStack cflStack = stack.copy();
-                 try { cflStack.setCount(countNeeded); } catch(Exception e){}
-                 return CFLCompat.sendCFLPackage(link.freqId, cflStack, address);
+                ItemStack cflStack = stack.copy();
+                try { cflStack.setCount(countNeeded); } catch(Exception e){}
+
+                if (net.neoforged.fml.ModList.get().isLoaded("createstockbridge")) {
+                    wakeUpStockBridges(link.freqId, cflStack, countNeeded, address);
+                }
+
+                return CFLCompat.sendCFLPackage(link.freqId, cflStack, address);
             }
             return false;
         }
-        
+
         if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE)) LOGGER.info("[Bridge-Send] Native Create Detected. Forwarding to StockTicker Mixin...");
         ItemStack typeStack = stack.copy();
         typeStack.setCount(1);
-        
+
         BigItemStack bigStack = new BigItemStack(typeStack, countNeeded);
         PackageOrder realOrder = new PackageOrder(Collections.singletonList(bigStack));
         PackageOrderWithCrafts wrapped = new PackageOrderWithCrafts(realOrder, Collections.emptyList());
@@ -226,15 +235,64 @@ public class LogisticsBridge {
         }
     }
 
+    private static void wakeUpStockBridges(java.util.UUID freqId, ItemStack itemToShip, int amount, String address) {
+        try {
+            Collection<LogisticallyLinkedBehaviour> networkLinks = LogisticallyLinkedBehaviour.getAllPresent(freqId, false);
+            if (networkLinks == null || networkLinks.isEmpty()) return;
+
+            for (LogisticallyLinkedBehaviour behaviour : networkLinks) {
+                if (behaviour == null || behaviour.blockEntity == null) continue;
+
+                PackagerBlockEntity packager = null;
+                if (behaviour.blockEntity instanceof PackagerBlockEntity p) {
+                    packager = p;
+                } else if (behaviour.blockEntity instanceof PackagerLinkBlockEntity linkBE) {
+                    packager = findConnectedPackager(linkBE);
+                }
+
+                if (packager != null && packager.targetInventory != null) {
+                    Object rawInv = packager.targetInventory.getInventory();
+                    if (rawInv == null) continue;
+
+                    if (rawInv.getClass().getName().contains("BridgeInventory")) {
+                        Method getBlockEntity = rawInv.getClass().getMethod("getBlockEntity");
+                        getBlockEntity.setAccessible(true);
+                        Object bridgeEntity = getBlockEntity.invoke(rawInv);
+
+                        com.simibubi.create.content.logistics.packager.PackagingRequest dummyRequest =
+                                new com.simibubi.create.content.logistics.packager.PackagingRequest(
+                                        itemToShip.copy(),
+                                        new MutableInt(amount),
+                                        address,
+                                        0,
+                                        new MutableBoolean(true),
+                                        new MutableInt(1),
+                                        0,
+                                        null
+                                );
+
+                        Method pullMethod = bridgeEntity.getClass().getMethod("pull", com.simibubi.create.content.logistics.packager.PackagingRequest.class);
+                        pullMethod.setAccessible(true);
+                        pullMethod.invoke(bridgeEntity, dummyRequest);
+
+                        LogUtils.getLogger().info("[Bridge-Compat] Successfully woke up a Stock Bridge for item: " + itemToShip.getHoverName().getString());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            LogUtils.getLogger().warn("[Bridge-Compat] Failed to send wake-up call to Stock Bridge.", e);
+        }
+    }
+
     public static void send(Object ticker, Object order, String address) {
         if (ticker instanceof IAutomatedTicker automatedTicker) {
             if (order instanceof PackageOrderWithCrafts packageOrder) {
                 automatedTicker.cclogistics$automatedRequest(packageOrder, address);
             } else {
-                 if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE)) LOGGER.error("[Bridge-Send] FAILED: Order is not PackageOrderWithCrafts! Type: " + order.getClass().getName());
+                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE)) LOGGER.error("[Bridge-Send] FAILED: Order is not PackageOrderWithCrafts! Type: " + order.getClass().getName());
             }
         } else {
-             if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE)) LOGGER.error("[Bridge-Send] FAILED: Ticker does not implement IAutomatedTicker mixin! Are mixins loading properly?");
+            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE)) LOGGER.error("[Bridge-Send] FAILED: Ticker does not implement IAutomatedTicker mixin! Are mixins loading properly?");
         }
     }
 }

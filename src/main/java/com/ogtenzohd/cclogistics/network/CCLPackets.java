@@ -40,6 +40,12 @@ public class CCLPackets {
             UpdateLogisticsModulePacket.STREAM_CODEC,
             UpdateLogisticsModulePacket::handle
         );
+
+        registrar.playBidirectional(
+                UpdateExpressModulePacket.TYPE,
+                UpdateExpressModulePacket.STREAM_CODEC,
+                UpdateExpressModulePacket::handle
+        );
     }
 
     public static void sendToServer(CustomPacketPayload payload) {

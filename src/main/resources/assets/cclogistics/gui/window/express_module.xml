@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<window xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/ldtteam/BlockUI/version/main/src/main/resources/assets/blockui/gui/block_ui.xsd"
+        size="190 244"
+        lightbox="true">
+
+    <layout source="minecolonies:gui/layouthuts/layouthutpageactions.xml"/>
+
+    <image source="minecolonies:textures/gui/builderhut/builder_paper.png" size="190 244" pos="0 0"/>
+
+    <text id="title" size="190 12" pos="50 15" color="black" label="Express Delivery Setup"/>
+
+    <list id="buildingList" size="180 170" pos="10 35">
+        <box size="100% 16" linewidth="1">
+            <text id="buildingText" size="130 12" pos="2 2" color="black"/>
+            <button id="toggleBtn" size="30 16" pos="140 0" label="[ ]" source="minecolonies:textures/gui/builderhut/builder_button_medium.png" color="black"/>
+        </box>
+
+        <group size="10 100%" pos="170 0"/>
+
+        <group size="10 10" pos="170 0"/>
+    </list>
+</window>

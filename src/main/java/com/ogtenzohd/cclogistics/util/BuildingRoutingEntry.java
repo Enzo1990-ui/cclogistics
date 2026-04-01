@@ -10,7 +10,6 @@ public record BuildingRoutingEntry(String address, String buildingId, boolean en
     public BuildingRoutingEntry(String address, String buildingId) {
         this(address, buildingId, true);
     }
-    // -------------------------------------------------------------------
 
     public CompoundTag serialize() {
         CompoundTag tag = new CompoundTag();

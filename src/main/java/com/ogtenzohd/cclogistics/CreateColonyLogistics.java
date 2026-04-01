@@ -1,25 +1,23 @@
 package com.ogtenzohd.cclogistics;
 
-import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
+import com.minecolonies.api.sounds.EventType;
+import com.minecolonies.api.sounds.ModSoundEvents;
+import com.minecolonies.api.util.Tuple;
 import com.mojang.logging.LogUtils;
 import com.ogtenzohd.cclogistics.config.CCLConfig;
 import com.ogtenzohd.cclogistics.network.CCLPackets;
 import com.ogtenzohd.cclogistics.registration.CCLRegistration;
+import com.ogtenzohd.cclogistics.util.HolidayManager;
+import net.minecraft.sounds.SoundEvent;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.config.ModConfig;
-import net.neoforged.fml.ModLoadingContext;
-import net.minecraft.world.item.Item;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
 import net.neoforged.fml.common.Mod;
-import net.minecraft.sounds.SoundEvent;
-import com.minecolonies.api.sounds.EventType;
-import com.minecolonies.api.sounds.ModSoundEvents;
-import com.minecolonies.api.util.Tuple;
+import net.neoforged.fml.config.ModConfig;
+import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
+import org.slf4j.Logger;
+
 import java.util.List;
 import java.util.Map;
-import org.slf4j.Logger;
 
 @Mod(CreateColonyLogistics.MODID)
 public class CreateColonyLogistics {
@@ -64,5 +62,6 @@ public class CreateColonyLogistics {
         });
         
         LOGGER.info("[CCLogistics] Common Setup Complete.");
+        HolidayManager.refreshHolidays();
     }
 }

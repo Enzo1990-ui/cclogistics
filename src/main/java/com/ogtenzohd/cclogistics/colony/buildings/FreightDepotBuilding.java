@@ -1,22 +1,22 @@
 package com.ogtenzohd.cclogistics.colony.buildings;
 
+import com.google.common.collect.ImmutableCollection;
 import com.minecolonies.api.colony.IColony;
-import com.minecolonies.api.colony.jobs.registry.JobEntry;
+import com.minecolonies.api.colony.requestsystem.resolver.IRequestResolver;
+import com.minecolonies.api.tileentities.AbstractTileEntityColonyBuilding;
 import com.minecolonies.core.colony.buildings.AbstractBuilding;
 import com.minecolonies.core.tileentities.TileEntityColonyBuilding;
-import com.minecolonies.api.tileentities.AbstractTileEntityColonyBuilding;
 import com.ogtenzohd.cclogistics.blocks.custom.freight_depot.FreightDepotBlockEntity;
 import com.ogtenzohd.cclogistics.colony.job.PackerAgentJob;
 import com.ogtenzohd.cclogistics.colony.job.PackerAgentJob.PackerRole;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.Blocks;
-import java.util.List;
+
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 public class FreightDepotBuilding extends AbstractBuilding {
 
@@ -33,12 +33,11 @@ public class FreightDepotBuilding extends AbstractBuilding {
         return "freight_depot";
     }
 
-    // BRAIN SWAP -- 90/10 Unload/Load Split
     public void initateBrainSwap(boolean trainPresent) {
         if (getColony() == null || getColony().getCitizenManager() == null) return;
-        
+
         java.util.List<PackerAgentJob> workers = new java.util.ArrayList<>();
-        
+
         for (com.minecolonies.api.colony.ICitizenData citizen : getColony().getCitizenManager().getCitizens()) {
             if (citizen.getWorkBuilding() == this && citizen.getJob() instanceof PackerAgentJob packerJob) {
                 workers.add(packerJob);
@@ -53,7 +52,7 @@ public class FreightDepotBuilding extends AbstractBuilding {
         if (trainPresent) {
             int unloaders = Math.max(1, (int)(total * 0.9));
             int loaders = Math.max(1, (int)(total * 0.1));
-            
+
             for (PackerAgentJob worker : workers) {
                 if (i < unloaders) {
                     worker.setRole(PackerRole.UNLOADING_TRAIN);
@@ -97,14 +96,14 @@ public class FreightDepotBuilding extends AbstractBuilding {
     public void updateStructureData() {
         AbstractTileEntityColonyBuilding abstractTE = getTileEntity();
         if (!(abstractTE instanceof TileEntityColonyBuilding te)) return;
-        
+
         Map<String, Set<BlockPos>> tagMap = te.getWorldTagNamePosMap();
         if (tagMap == null) return;
 
         if (tagMap.containsKey("freight_input")) {
             this.inputChestPos = tagMap.get("freight_input").iterator().next();
         }
-        
+
         if (tagMap.containsKey("freight_output")) {
             this.outputChestPos = tagMap.get("freight_output").iterator().next();
         }
@@ -112,11 +111,16 @@ public class FreightDepotBuilding extends AbstractBuilding {
         if (tagMap.containsKey("freight_platform")) {
             this.platformPositions = tagMap.get("freight_platform");
         }
-        
+
         BlockEntity be = getColony().getWorld().getBlockEntity(getLocation().getInDimensionLocation());
         if (be instanceof FreightDepotBlockEntity depotBE) {
             depotBE.setImportPos(inputChestPos);
             depotBE.setExportPos(outputChestPos);
         }
+    }
+
+    @Override
+    public ImmutableCollection<IRequestResolver<?>> createResolvers() {
+        return super.createResolvers();
     }
 }

@@ -3,28 +3,29 @@ package com.ogtenzohd.cclogistics.colony;
 import com.minecolonies.api.colony.buildings.registry.BuildingEntry;
 import com.minecolonies.api.colony.jobs.registry.JobEntry;
 import com.minecolonies.api.entity.citizen.Skill;
+import com.minecolonies.core.colony.buildings.modules.BuildingModules;
+import com.minecolonies.core.colony.buildings.modules.CraftingWorkerBuildingModule;
+import com.minecolonies.core.colony.buildings.modules.WorkerBuildingModule;
+import com.minecolonies.core.colony.buildings.moduleviews.WorkerBuildingModuleView;
+import com.minecolonies.core.colony.jobs.views.DefaultJobView;
 import com.ogtenzohd.cclogistics.CreateColonyLogistics;
 import com.ogtenzohd.cclogistics.colony.buildings.ForemenHutBuilding;
 import com.ogtenzohd.cclogistics.colony.buildings.ForemenHutBuildingView;
 import com.ogtenzohd.cclogistics.colony.buildings.FreightDepotBuilding;
 import com.ogtenzohd.cclogistics.colony.buildings.FreightDepotBuildingView;
+import com.ogtenzohd.cclogistics.colony.buildings.modules.ExpressModule;
+import com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule;
+import com.ogtenzohd.cclogistics.colony.buildings.modules.LoggerModule;
+import com.ogtenzohd.cclogistics.colony.buildings.modules.LogisticsModule;
+import com.ogtenzohd.cclogistics.colony.buildings.moduleviews.ExpressModuleView;
+import com.ogtenzohd.cclogistics.colony.buildings.moduleviews.FreightTrackerModuleView;
+import com.ogtenzohd.cclogistics.colony.buildings.moduleviews.LoggerModuleView;
+import com.ogtenzohd.cclogistics.colony.buildings.moduleviews.LogisticsModuleView;
 import com.ogtenzohd.cclogistics.colony.job.FreightInspectorJob;
 import com.ogtenzohd.cclogistics.colony.job.LogisticsCoordinatorJob;
 import com.ogtenzohd.cclogistics.colony.job.PackerAgentJob;
-import com.ogtenzohd.cclogistics.registration.CCLRegistration;
 import com.ogtenzohd.cclogistics.config.CCLConfig;
-import com.minecolonies.core.colony.buildings.modules.WorkerBuildingModule;
-import com.minecolonies.core.colony.buildings.modules.BuildingModules;
-import com.minecolonies.core.colony.buildings.moduleviews.WorkerBuildingModuleView;
-import com.minecolonies.core.colony.jobs.views.DefaultJobView;
-import com.ogtenzohd.cclogistics.colony.buildings.modules.LogisticsModule;
-import com.ogtenzohd.cclogistics.colony.buildings.moduleviews.LogisticsModuleView;
-import com.ogtenzohd.cclogistics.colony.buildings.modules.LoggerModule;
-import com.ogtenzohd.cclogistics.colony.buildings.moduleviews.LoggerModuleView;
-import com.minecolonies.core.colony.buildings.modules.CraftingWorkerBuildingModule;
-import com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule;
-import com.ogtenzohd.cclogistics.colony.buildings.moduleviews.FreightTrackerModuleView;
-
+import com.ogtenzohd.cclogistics.registration.CCLRegistration;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -32,7 +33,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.registries.RegisterEvent;
 
-@EventBusSubscriber(modid = CreateColonyLogistics.MODID, bus = EventBusSubscriber.Bus.MOD)
+@EventBusSubscriber(modid = CreateColonyLogistics.MODID)
 public class CCLColonyRegistries {
 
     public static final String JOB_LOGISTICS_COORDINATOR = "logistics_coordinator";
@@ -97,6 +98,13 @@ public class CCLColonyRegistries {
             () -> new FreightTrackerModule(),
             () -> FreightTrackerModuleView::new
         );
+
+    public static final BuildingEntry.ModuleProducer<ExpressModule, ExpressModuleView> EXPRESS_MODULE =
+            new BuildingEntry.ModuleProducer<>(
+                    "freight_depot_express",
+                    () -> new ExpressModule(),
+                    () -> ExpressModuleView::new
+            );
         
     private static final ResourceKey<Registry<JobEntry>> JOB_REGISTRY_KEY = 
         ResourceKey.createRegistryKey(ResourceLocation.fromNamespaceAndPath("minecolonies", "jobs"));
@@ -158,6 +166,7 @@ public class CCLColonyRegistries {
             .addBuildingModuleProducer(BuildingModules.MIN_STOCK)
             .addBuildingModuleProducer(BuildingModules.STATS_MODULE)
             .addBuildingModuleProducer(LOGISTICS_MODULE)
+            .addBuildingModuleProducer(EXPRESS_MODULE)
 			.addBuildingModuleProducer(TRACKER_MODULE)
             
             .createBuildingEntry();

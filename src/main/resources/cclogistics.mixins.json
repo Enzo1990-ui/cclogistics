@@ -7,7 +7,9 @@
   "mixins": [
     "LogisticsManagerMixin",
     "StockTickerMixin",
-    "CCLItemVaultMixin"
+    "CCLItemVaultMixin",
+    "ContraptionAccessor"
+
   ],
   "client": [
   ],
