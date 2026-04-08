@@ -33,11 +33,21 @@ Your colony gains three brand-new, fully animated professions dedicated entirely
 
 ## 🔧 How It Works (The Logistics Loop)
 
-1. **Link it up:** Use the **Logistics Linker** item to bind your Freight Depot and Logistics Controller to a nearby Create Stock Ticker.
-2. **Configure Routing:** Open the Logistics Controller and assign Create Package addresses to your different MineColonies buildings (e.g., routing Oak Wood directly to the Builder).
-3. **Importing:** When a Builder or Crafter needs an item that isn't in the Warehouse, the Freight Depot automatically intercepts the request and asks the Create network for it. The items are delivered, unpacked by the Packer, and sent to the Warehouse.
-4. **Exporting:** When your colony generates too much of an item, the Coordinator flags it. The Packer Agent boxes the excess into Cardboard Packages and sends it back to the Create network for sorting or storage.
+To use the mod it really is quite simple
 
+- Build the train depot.
+
+- Open up the freight depot gui click logistics and choose a name for colony and create
+
+- Link your freight depot hut with your stock ticker
+
+- In your create storage have a packager hooked up with a stock link that feeds into a train. 
+
+- Have a packager hooked up to your create system and a belt feeding into that with a package filter named your create name exporting items from the train.
+
+- Hire your logistics coordinator and packager agents.
+
+- Let them work.
 ---
 
 ## 📥 Installation & Dependencies
