@@ -12,16 +12,16 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class FreightTrackerModule extends AbstractBuildingModule implements IPersistentModule {
-    
+
     public enum TrackStatus {
-        REQUESTED("§e[Requested]"), 
-        RECEIVED("§e[Ticker Received]"),      
-        ACCEPTED("§a[En Route]"), 
-        IN_TRANSIT("§b[Depot Received]"), 
+        REQUESTED("§e[Requested]"),
+        RECEIVED("§e[Ticker Received]"),
+        ACCEPTED("§a[En Route]"),
+        IN_TRANSIT("§b[Depot Received]"),
         DELIVERING("§d[Delivering]"),
-        NO_STOCK("§c[Out of Stock]"), 
-        COMPLETED("§2[Complete]");    
-        
+        NO_STOCK("§c[Out of Stock]"),
+        COMPLETED("§2[Complete]");
+
         public final String display;
         TrackStatus(String display) { this.display = display; }
     }
@@ -32,6 +32,7 @@ public class FreightTrackerModule extends AbstractBuildingModule implements IPer
         public TrackStatus status;
         public String override;
         public long timestamp;
+        public boolean isIncoming = true; //
     }
 
     private final Map<String, TrackedReq> requests = new ConcurrentHashMap<>();
@@ -55,53 +56,36 @@ public class FreightTrackerModule extends AbstractBuildingModule implements IPer
         setChanged();
     }
 
-    public void updateRequest(String itemName, int amount, TrackStatus status) {
-        updateRequest(itemName, itemName, amount, status, "");
-    }
-
-    public void updateRequest(String itemName, int amount, TrackStatus status, String override) {
-        updateRequest(itemName, itemName, amount, status, override);
-    }
-
     public void removeRequest(String id) {
         requests.remove(id);
         setChanged();
     }
 
-    public void updateRequest(String id, String name, int amt, TrackStatus stat, String override) {
+    public void updateRequest(String id, String name, int amt, TrackStatus stat, String override, boolean isIncoming) {
         TrackedReq r = requests.computeIfAbsent(id, k -> new TrackedReq());
         if (name != null && !name.equals("Unknown") && !name.equals("Request")) {
-            r.itemName = name; 
+            r.itemName = name;
         } else if (r.itemName == null) {
             r.itemName = "Pending Item...";
         }
-        
+
         if (amt > 0) r.amount = amt;
-        
+
         if (r.status != TrackStatus.COMPLETED || stat == TrackStatus.COMPLETED) {
             r.status = stat;
         }
         r.override = override != null ? override : "";
+        r.isIncoming = isIncoming;
         r.timestamp = System.currentTimeMillis();
         setChanged();
     }
 
-    public void updateRequestByName(String itemName, TrackStatus stat) {
-        for (TrackedReq r : requests.values()) {
-            if (r.itemName != null && r.itemName.equals(itemName) && r.status != TrackStatus.COMPLETED) {
-                r.status = stat;
-                r.timestamp = System.currentTimeMillis();
-                setChanged();
-            }
-        }
-    }
-
     public void tick() {
         long now = System.currentTimeMillis();
-        boolean removed = requests.entrySet().removeIf(e -> 
-            (e.getValue().status == TrackStatus.COMPLETED) 
-            && (now - e.getValue().timestamp > 120000));
-        
+        boolean removed = requests.entrySet().removeIf(e ->
+                (e.getValue().status == TrackStatus.COMPLETED)
+                        && (now - e.getValue().timestamp > 120000));
+
         if (removed) setChanged();
     }
 
@@ -123,6 +107,7 @@ public class FreightTrackerModule extends AbstractBuildingModule implements IPer
             t.putInt("Stat", e.getValue().status.ordinal());
             if (e.getValue().override != null) t.putString("Over", e.getValue().override);
             t.putLong("Time", e.getValue().timestamp);
+            t.putBoolean("IsIncoming", e.getValue().isIncoming);
             list.add(t);
         }
         tag.put("TrackerV2", list);
@@ -149,9 +134,15 @@ public class FreightTrackerModule extends AbstractBuildingModule implements IPer
                 } else {
                     r.status = TrackStatus.REQUESTED;
                 }
-                
+
                 if (t.contains("Over")) r.override = t.getString("Over");
                 r.timestamp = t.getLong("Time");
+                if (t.contains("IsIncoming")) {
+                    r.isIncoming = t.getBoolean("IsIncoming");
+                } else {
+                    r.isIncoming = true;
+                }
+
                 requests.put(t.getString("ID"), r);
             }
         }
@@ -167,6 +158,7 @@ public class FreightTrackerModule extends AbstractBuildingModule implements IPer
             buf.writeInt(e.getValue().status.ordinal());
             buf.writeUtf(e.getValue().override != null ? e.getValue().override : "");
             buf.writeLong(e.getValue().timestamp);
+            buf.writeBoolean(e.getValue().isIncoming);
         }
     }
 }

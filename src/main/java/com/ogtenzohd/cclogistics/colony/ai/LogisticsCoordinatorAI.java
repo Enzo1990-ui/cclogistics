@@ -1,30 +1,30 @@
 package com.ogtenzohd.cclogistics.colony.ai;
 
-import com.minecolonies.core.entity.ai.workers.AbstractEntityAIBasic;
-import com.minecolonies.api.entity.citizen.Skill;
+import com.minecolonies.api.colony.buildings.IBuilding;
+import com.minecolonies.api.colony.requestsystem.requestable.Stack;
 import com.minecolonies.api.colony.requestsystem.token.IToken;
+import com.minecolonies.api.crafting.ItemStorage;
+import com.minecolonies.api.entity.citizen.Skill;
+import com.minecolonies.api.util.InventoryUtils;
+import com.minecolonies.core.entity.ai.workers.AbstractEntityAIBasic;
+import com.mojang.logging.LogUtils;
 import com.ogtenzohd.cclogistics.blocks.custom.freight_depot.FreightDepotBlockEntity;
 import com.ogtenzohd.cclogistics.colony.buildings.FreightDepotBuilding;
 import com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule;
 import com.ogtenzohd.cclogistics.colony.job.LogisticsCoordinatorJob;
-import com.minecolonies.api.colony.requestsystem.requestable.Stack;
-import com.minecolonies.api.colony.buildings.IBuilding;
-import com.minecolonies.api.util.InventoryUtils;
-import com.minecolonies.api.crafting.ItemStorage;
 import com.ogtenzohd.cclogistics.config.CCLConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtUtils;
-import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import org.slf4j.Logger;
-import com.mojang.logging.LogUtils;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -216,8 +216,14 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                             ItemStack requestStack = referenceStack.copy();
                             requestStack.setCount(amountToRequestThisTrip);
                             IToken<?> newReq = job.getCitizen().createRequest(new Stack(requestStack));
+
                             if (newReq != null) {
                                 pendingPickups.add(new PendingPickup(itemName, amountToRequestThisTrip, now));
+                                FreightTrackerModule module = depot.getModule(FreightTrackerModule.class);
+                                if (module != null) {
+                                    module.updateRequest(itemName + "_export_" + now, itemName, amountToRequestThisTrip, FreightTrackerModule.TrackStatus.REQUESTED, "Export Pending", false);
+                                }
+
                                 if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] -> Successfully spawned internal Request Token for " + amountToRequestThisTrip + "x " + itemName);
                                 delay = 10;
                                 return;

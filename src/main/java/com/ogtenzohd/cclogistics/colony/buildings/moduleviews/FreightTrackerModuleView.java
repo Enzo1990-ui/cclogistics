@@ -35,6 +35,7 @@ public class FreightTrackerModuleView extends AbstractBuildingModuleView {
             r.status = FreightTrackerModule.TrackStatus.values()[buf.readInt()];
             r.override = buf.readUtf();
             r.timestamp = buf.readLong();
+            r.isIncoming = buf.readBoolean();
             requests.put(id, r);
         }
     }

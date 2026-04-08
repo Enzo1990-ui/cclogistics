@@ -1,15 +1,16 @@
 package com.ogtenzohd.cclogistics.registration;
 
 import com.ogtenzohd.cclogistics.CreateColonyLogistics;
+import com.ogtenzohd.cclogistics.blocks.custom.TrackClearanceBlock;
+import com.ogtenzohd.cclogistics.blocks.custom.foremens_hut.ForemenHutBlock;
+import com.ogtenzohd.cclogistics.blocks.custom.foremens_hut.ForemenHutBlockEntity;
+import com.ogtenzohd.cclogistics.blocks.custom.foremens_hut.menu.ForemenHutMenu;
 import com.ogtenzohd.cclogistics.blocks.custom.freight_depot.FreightDepotBlock;
 import com.ogtenzohd.cclogistics.blocks.custom.freight_depot.FreightDepotBlockEntity;
 import com.ogtenzohd.cclogistics.blocks.custom.freight_depot.menu.FreightDepotMenu;
 import com.ogtenzohd.cclogistics.blocks.custom.logistics_controller.LogisticsControllerBlock;
 import com.ogtenzohd.cclogistics.blocks.custom.logistics_controller.LogisticsControllerBlockEntity;
 import com.ogtenzohd.cclogistics.blocks.custom.logistics_controller.menu.LogisticsControllerMenu;
-import com.ogtenzohd.cclogistics.blocks.custom.foremens_hut.ForemenHutBlock;
-import com.ogtenzohd.cclogistics.blocks.custom.foremens_hut.ForemenHutBlockEntity;
-import com.ogtenzohd.cclogistics.blocks.custom.foremens_hut.menu.ForemenHutMenu;
 import com.ogtenzohd.cclogistics.items.LogisticsLinkerItem;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
@@ -18,8 +19,8 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -30,7 +31,7 @@ import net.neoforged.neoforge.common.extensions.IMenuTypeExtension;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
-@EventBusSubscriber(modid = CreateColonyLogistics.MODID, bus = EventBusSubscriber.Bus.MOD)
+@EventBusSubscriber(modid = CreateColonyLogistics.MODID)
 public class CCLRegistration {
 
     public static final String MODID = CreateColonyLogistics.MODID;
@@ -52,6 +53,9 @@ public class CCLRegistration {
     public static final DeferredHolder<Block, ForemenHutBlock> FOREMEN_HUT_BLOCK = BLOCKS.register("foremens_hut",
             () -> new ForemenHutBlock(BlockBehaviour.Properties.of().mapColor(MapColor.WOOD).strength(2.5f)));
 
+    public static final DeferredHolder<Block, TrackClearanceBlock> TRACK_CLEARANCE_BLOCK = BLOCKS.register("track_clearance",
+            () -> new TrackClearanceBlock());
+
     // --- ITEMS ---
     public static final DeferredHolder<Item, BlockItem> LOGISTICS_CONTROLLER_ITEM = ITEMS.register("logistics_controller",
             () -> new BlockItem(LOGISTICS_CONTROLLER_BLOCK.get(), new Item.Properties()));
@@ -64,6 +68,9 @@ public class CCLRegistration {
 
     public static final DeferredHolder<Item, LogisticsLinkerItem> LOGISTICS_LINKER = ITEMS.register("logistics_linker",
             () -> new LogisticsLinkerItem(new Item.Properties().stacksTo(1)));
+
+    public static final DeferredHolder<Item, BlockItem> TRACK_CLEARANCE_ITEM = ITEMS.register("track_clearance",
+            () -> new BlockItem(TRACK_CLEARANCE_BLOCK.get(), new Item.Properties()));
 
     // --- BLOCK ENTITIES ---
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<LogisticsControllerBlockEntity>> LOGISTICS_CONTROLLER_BE =
@@ -97,6 +104,7 @@ public class CCLRegistration {
                 output.accept(FREIGHT_DEPOT_ITEM.get());
                 output.accept(FOREMEN_HUT_ITEM.get());
                 output.accept(LOGISTICS_LINKER.get());
+                output.accept(TRACK_CLEARANCE_BLOCK.get());
             }).build());
 
     public static void register(IEventBus eventBus) {

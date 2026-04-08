@@ -26,11 +26,11 @@ public class CFLCompat {
     public static void init() {
         if (initialized) return;
         cflLoaded = ModList.get().isLoaded("create_factory_logistics") || ModList.get().isLoaded("create_factory_abstractions");
-        
+
         if (cflLoaded) {
             try {
                 if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE)) LOGGER.info("[CCLogistics] Create Factory Logistics detected! Wiring up GenericLogisticsManager...");
-                
+
                 Class<?> bigGenericStackClass = Class.forName("ru.zznty.create_factory_abstractions.generic.support.BigGenericStack");
                 bigGenericStackOfMethod = bigGenericStackClass.getMethod("of", BigItemStack.class);
                 bigGenericStackGetMethod = bigGenericStackClass.getMethod("get");
@@ -39,11 +39,11 @@ public class CFLCompat {
                 genericOrderOrderMethod = genericOrderClass.getMethod("order", List.class);
 
                 Class<?> genericLogisticsManagerClass = Class.forName("ru.zznty.create_factory_abstractions.generic.support.GenericLogisticsManager");
-                broadcastPackageRequestMethod = genericLogisticsManagerClass.getMethod("broadcastPackageRequest", 
-                        UUID.class, 
-                        LogisticallyLinkedBehaviour.RequestType.class, 
-                        genericOrderClass, 
-                        IdentifiedInventory.class, 
+                broadcastPackageRequestMethod = genericLogisticsManagerClass.getMethod("broadcastPackageRequest",
+                        UUID.class,
+                        LogisticallyLinkedBehaviour.RequestType.class,
+                        genericOrderClass,
+                        IdentifiedInventory.class,
                         String.class);
 
                 if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE)) LOGGER.info("[CCLogistics] CFL Reflection Wrapper initialized successfully!");
@@ -55,29 +55,25 @@ public class CFLCompat {
         initialized = true;
     }
 
-    public static boolean sendCFLPackage(UUID networkFreqId, ItemStack stack, String address) {
+    public static boolean sendCFLPackage(UUID networkFreqId, ItemStack stack, int amount, String address, LogisticallyLinkedBehaviour.RequestType requestType) {
         if (!cflLoaded) return false;
-        
         try {
             ItemStack typeStack = stack.copy();
             typeStack.setCount(1);
-            BigItemStack bigStack = new BigItemStack(typeStack, stack.getCount());
-
+            BigItemStack bigStack = new BigItemStack(typeStack, amount);
             Object bigGenericStack = bigGenericStackOfMethod.invoke(null, bigStack);
             Object genericStack = bigGenericStackGetMethod.invoke(bigGenericStack);
-
             Object genericOrder = genericOrderOrderMethod.invoke(null, Collections.singletonList(genericStack));
-
-            broadcastPackageRequestMethod.invoke(null, 
-                    networkFreqId, 
-                    LogisticallyLinkedBehaviour.RequestType.REDSTONE, 
-                    genericOrder, 
-                    null, 
+            broadcastPackageRequestMethod.invoke(null,
+                    networkFreqId,
+                    requestType,
+                    genericOrder,
+                    null,
                     address);
-            
-            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE)) LOGGER.info("[CCLogistics] Successfully pushed request to CFL GenericLogisticsManager for address: " + address);
+
+            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE)) LOGGER.info("[CCLogistics] Successfully pushed " + requestType.name() + " request to CFL for address: " + address);
             return true;
-            
+
         } catch (Exception e) {
             LOGGER.error("[CCLogistics] CFL Package routing failed during reflection execution", e);
             return false;

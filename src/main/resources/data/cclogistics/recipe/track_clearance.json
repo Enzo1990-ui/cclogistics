@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "create:track"
+    },
+    {
+      "item": "structurize:sceptergold"
+    }
+  ],
+  "result": {
+    "id": "cclogistics:track_clearance",
+    "count": 64
+  }
+}

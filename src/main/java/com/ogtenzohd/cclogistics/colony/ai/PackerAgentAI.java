@@ -90,8 +90,18 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
         if (job.getWorkBuilding() != null) {
             FreightTrackerModule module = job.getWorkBuilding().getModule(FreightTrackerModule.class);
             if (module != null) {
-                if (status == FreightTrackerModule.TrackStatus.COMPLETED) module.removeRequest(itemName);
-                else module.updateRequest(itemName, amount, status);
+                for (java.util.Map.Entry<String, FreightTrackerModule.TrackedReq> entry : module.getRequests().entrySet()) {
+                    FreightTrackerModule.TrackedReq req = entry.getValue();
+
+                    if (req.itemName != null && req.itemName.equals(itemName) && req.status != FreightTrackerModule.TrackStatus.COMPLETED) {
+                        if (status == FreightTrackerModule.TrackStatus.COMPLETED) {
+                            module.removeRequest(entry.getKey());
+                        } else {
+                            module.updateRequest(entry.getKey(), req.itemName, req.amount, status, req.override, req.isIncoming);
+                        }
+                        break;
+                    }
+                }
             }
         }
     }
@@ -100,7 +110,18 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
         if (job.getWorkBuilding() != null) {
             FreightTrackerModule module = job.getWorkBuilding().getModule(FreightTrackerModule.class);
             if (module != null) {
-                module.updateRequestByName(itemName, status);
+                for (java.util.Map.Entry<String, FreightTrackerModule.TrackedReq> entry : module.getRequests().entrySet()) {
+                    FreightTrackerModule.TrackedReq req = entry.getValue();
+
+                    if (req.itemName != null && req.itemName.equals(itemName) && req.status != FreightTrackerModule.TrackStatus.COMPLETED) {
+                        if (status == FreightTrackerModule.TrackStatus.COMPLETED) {
+                            module.removeRequest(entry.getKey());
+                        } else {
+                            module.updateRequest(entry.getKey(), req.itemName, req.amount, status, req.override, req.isIncoming);
+                        }
+
+                    }
+                }
             }
         }
     }
@@ -467,6 +488,9 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
 
                             if (!toPack.isEmpty()) {
                                 ItemStack pkg = pack(toPack, targetAddress);
+                                for (ItemStack packedItem : toPack) {
+                                    updateTrackerByName(packedItem.getHoverName().getString(), FreightTrackerModule.TrackStatus.COMPLETED);
+                                }
                                 if (!pkg.isEmpty()) {
                                     holdingItems.add(pkg);
                                 } else {

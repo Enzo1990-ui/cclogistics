@@ -44,7 +44,7 @@ public class LogisticsRequestHelper {
             Set<Object> activeRequestIds,
             Set<String> sentRequestIds,
             Function<IRequest<?>, String> addressResolver,
-            List<String> auditLog,
+            Consumer<String> auditLogger,
             Consumer<ItemStack> onImportSuccess,
             TrackerUpdater trackerUpdater,
             OrderCacher orderCacher
@@ -73,6 +73,23 @@ public class LogisticsRequestHelper {
             return;
         }
 
+        liveRequests.entrySet().removeIf(entry -> {
+            IRequest<?> req = entry.getValue();
+            if (req == null) return true;
+
+            String reqType = req.getClass().getSimpleName();
+            if (reqType.contains("DeliveryRequest") || reqType.contains("PickupRequest") ||
+                    reqType.contains("RestockRequest") || reqType.contains("DropoffRequest")) {
+                return true;
+            }
+            String reqClass = req.getRequester().getClass().getSimpleName().toLowerCase();
+            if (reqClass.contains("warehouse") || reqClass.contains("logisticscoordinator")) {
+                return true;
+            }
+
+            return false;
+        });
+
         if (activeRequestIds != null) {
             Set<Object> currentIds = new HashSet<>(liveRequests.keySet());
             for (Object oldId : new HashSet<>(activeRequestIds)) {
@@ -97,27 +114,22 @@ public class LogisticsRequestHelper {
                 if (req.canBeDelivered()) continue;
 
                 try {
-                    BlockPos requesterPos = null;
-                    if (req.getRequester() != null) {
-                        requesterPos = req.getRequester().getLocation().getInDimensionLocation();
-                    }
+                    BlockPos requesterPos = req.getRequester().getLocation().getInDimensionLocation();
 
-                    if (requesterPos != null) {
-                        IBuilding requesterBuilding = colony.getServerBuildingManager().getBuilding(requesterPos);
-                        if (requesterBuilding != null) {
-                            ExpressModule expressModule = null;
+                    IBuilding requesterBuilding = colony.getServerBuildingManager().getBuilding(requesterPos);
+                    if (requesterBuilding != null) {
+                        ExpressModule expressModule = null;
 
-                            for (var b : colony.getServerBuildingManager().getBuildings().values()) {
-                                expressModule = b.getModule(ExpressModule.class);
-                                if (expressModule != null) break;
-                            }
+                        for (var b : colony.getServerBuildingManager().getBuildings().values()) {
+                            expressModule = b.getModule(ExpressModule.class);
+                            if (expressModule != null) break;
+                        }
 
-                            if (expressModule != null) {
-                                String checkString = requesterBuilding.getBuildingDisplayName() + ";" + requesterBuilding.getID();
-                                if (expressModule.isExpressEnabled(checkString)) {
-                                    targetAddress = targetAddress + "-express;" + requesterPos.getX() + "," + requesterPos.getY() + "," + requesterPos.getZ();
-                                    if (FORCE_TRACE) LOGGER.info("[CCL-TRACE] Request upgraded to EXPRESS for {}!", requesterBuilding.getBuildingDisplayName());
-                                }
+                        if (expressModule != null) {
+                            String checkString = requesterBuilding.getBuildingDisplayName() + ";" + requesterBuilding.getID();
+                            if (expressModule.isExpressEnabled(checkString)) {
+                                targetAddress = targetAddress + "-express;" + requesterPos.getX() + "," + requesterPos.getY() + "," + requesterPos.getZ();
+                                if (FORCE_TRACE) LOGGER.info("[CCL-TRACE] Request upgraded to EXPRESS for {}!", requesterBuilding.getBuildingDisplayName());
                             }
                         }
                     }
@@ -149,13 +161,11 @@ public class LogisticsRequestHelper {
 
                 if (innerReq instanceof Tool toolReq) {
                     itemToSend = findToolInNetwork(toolReq, networkInv);
-                    amountNeeded = 1;
                 } else if (innerReq instanceof Stack stackReq) {
                     itemToSend = stackReq.getStack().copy();
                     amountNeeded = stackReq.getCount();
-                } else if (innerReq instanceof Food foodReq) {
+                } else if (innerReq instanceof Food) {
                     itemToSend = findFoodInNetwork(networkInv);
-                    amountNeeded = 1;
                 } else if (innerReq instanceof StackList stackListReq) {
                     if (!stackListReq.getStacks().isEmpty()) {
                         ItemStack firstValid = stackListReq.getStacks().get(0);
@@ -163,11 +173,10 @@ public class LogisticsRequestHelper {
                         amountNeeded = firstValid.getCount();
                     }
                 } else if (innerReq instanceof Burnable) {
-                    amountNeeded = 1;
                 }
 
                 if (amountNeeded <= 0) amountNeeded = 1;
-                if (itemToSend.isEmpty() || canColonyCraft(colony, itemToSend)) continue;
+                if (itemToSend.isEmpty() || canColonyCraft(itemToSend)) continue;
 
                 int maxPackageCapacity = itemToSend.getMaxStackSize() * 9;
                 if (amountNeeded > maxPackageCapacity) amountNeeded = maxPackageCapacity;
@@ -178,41 +187,53 @@ public class LogisticsRequestHelper {
                 }
 
                 int exactStockAvailable = 0;
-                ItemStack safeItemToShip = null;
-
                 for (BigItemStack bis : networkInv) {
                     if (bis.stack.isEmpty()) continue;
                     if (ItemStack.isSameItemSameComponents(bis.stack, itemToSend)) {
                         exactStockAvailable += bis.count;
-                        safeItemToShip = bis.stack.copy();
                     }
                     else if (bis.stack.getItem() == itemToSend.getItem() &&
-                            bis.stack.getHoverName().getString().equals(itemToSend.getHoverName().getString())) {
-                        if (!itemToSend.getItem().toString().contains("domum_ornamentum")) {
-                            exactStockAvailable += bis.count;
-                            safeItemToShip = bis.stack.copy();
-                        }
+                            bis.stack.getHoverName().getString().equals(itemToSend.getHoverName().getString()) &&
+                            !itemToSend.getItem().toString().contains("domum_ornamentum")) {
+                        exactStockAvailable += bis.count;
                     }
                 }
 
-                if (exactStockAvailable >= amountNeeded && safeItemToShip != null) {
-                    if (orderCacher != null) {
-                        if (sentRequestIds != null) sentRequestIds.add(id);
-                        orderCacher.cacheOrder(safeItemToShip, amountNeeded, targetAddress);
+                if (exactStockAvailable >= amountNeeded) {
+                    int remainingNeeded = amountNeeded;
+                    for (BigItemStack bis : networkInv) {
+                        if (bis.stack.isEmpty() || remainingNeeded <= 0 || bis.count <= 0) continue;
 
-                        if (trackerUpdater != null) trackerUpdater.track(id, safeItemToShip.getHoverName().getString(), amountNeeded, FreightTrackerModule.TrackStatus.ACCEPTED, "Pending Coordinator");
-                    } else {
-                        boolean success = LogisticsBridge.sendPackage(ticker, safeItemToShip, amountNeeded, targetAddress, null);
+                        boolean matches = false;
+                        if (ItemStack.isSameItemSameComponents(bis.stack, itemToSend)) matches = true;
+                        else if (bis.stack.getItem() == itemToSend.getItem() &&
+                                bis.stack.getHoverName().getString().equals(itemToSend.getHoverName().getString()) &&
+                                !itemToSend.getItem().toString().contains("domum_ornamentum")) {
+                            matches = true;
+                        }
 
-                        if (success) {
-                            if (sentRequestIds != null) sentRequestIds.add(id);
-                            if (trackerUpdater != null) trackerUpdater.track(id, safeItemToShip.getHoverName().getString(), amountNeeded, FreightTrackerModule.TrackStatus.ACCEPTED, "Dispatched");
-                            if (onImportSuccess != null) onImportSuccess.accept(safeItemToShip);
-                            if (auditLog != null) auditLog.add("IN;Imported " + amountNeeded + "x " + safeItemToShip.getHoverName().getString());
-                        } else {
-                            if (trackerUpdater != null) trackerUpdater.track(id, itemToSend.getHoverName().getString(), amountNeeded, FreightTrackerModule.TrackStatus.NO_STOCK, "Create Network Routing Failed");
+                        if (matches) {
+                            int toTake = Math.min(remainingNeeded, bis.count);
+                            if (orderCacher != null) {
+                                orderCacher.cacheOrder(bis.stack.copy(), toTake, targetAddress);
+                            } else {
+                                boolean success = LogisticsBridge.sendPackage(ticker, bis.stack.copy(), toTake, targetAddress, null);
+                                if (success) {
+                                    if (onImportSuccess != null) onImportSuccess.accept(bis.stack.copy());
+                                    if (auditLogger != null) auditLogger.accept("IN;Imported " + toTake + "x " + bis.stack.getHoverName().getString());
+                                }
+                            }
+                            bis.count -= toTake;
+                            remainingNeeded -= toTake;
                         }
                     }
+                    if (sentRequestIds != null) sentRequestIds.add(id);
+                    if (orderCacher != null) {
+                        if (trackerUpdater != null) trackerUpdater.track(id, itemToSend.getHoverName().getString(), amountNeeded, FreightTrackerModule.TrackStatus.ACCEPTED, "Pending Coordinator");
+                    } else {
+                        if (trackerUpdater != null) trackerUpdater.track(id, itemToSend.getHoverName().getString(), amountNeeded, FreightTrackerModule.TrackStatus.ACCEPTED, "Dispatched");
+                    }
+
                 } else {
                     String msg = (exactStockAvailable == 0) ? "No Stock" : (amountNeeded - exactStockAvailable) + " Missing";
                     if (trackerUpdater != null) trackerUpdater.track(id, itemToSend.getHoverName().getString(), amountNeeded, FreightTrackerModule.TrackStatus.NO_STOCK, msg);
@@ -223,7 +244,7 @@ public class LogisticsRequestHelper {
         }
     }
 
-    private static boolean canColonyCraft(IColony colony, ItemStack stack) {
+    private static boolean canColonyCraft(ItemStack stack) {
         if (stack.isEmpty()) return false;
         if (stack.getMaxDamage() > 0 || !stack.isStackable()) return false;
         try {
@@ -238,7 +259,8 @@ public class LogisticsRequestHelper {
                     }
                 }
             }
-        } catch (Exception e) {}
+        } catch (Exception ignored) {
+        }
         return false;
     }
 

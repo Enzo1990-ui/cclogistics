@@ -184,8 +184,8 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
             ticker,
             this.activeRequestIds,
             this.sentRequestIds,
-            (request) -> resolveAddress(request), 
-            this.pendingIncomingLogs,
+            (request) -> resolveAddress(request),
+            (log) -> this.addIncomingLog(log, 100),
             (stack) -> this.protectItem(stack, 30),
             this::updateTracker,
             this::cacheManifestOrder
@@ -200,7 +200,11 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
                 if (status == com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackStatus.COMPLETED) {
                     module.removeRequest(id);
                 } else {
-                    module.updateRequest(id, itemName, amount, status, override);
+                    boolean isIncoming = true;
+                    if (override != null && (override.contains("Export") || override.contains("Outgoing"))) {
+                        isIncoming = false;
+                    }
+                    module.updateRequest(id, itemName, amount, status, override, isIncoming);
                 }
             }
         }
