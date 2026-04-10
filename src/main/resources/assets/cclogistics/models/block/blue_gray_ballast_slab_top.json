@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/slab_top",
+  "textures": {
+    "bottom": "cclogistics:block/blue_gray_ballast",
+    "top": "cclogistics:block/blue_gray_ballast",
+    "side": "cclogistics:block/blue_gray_ballast"
+  }
+}

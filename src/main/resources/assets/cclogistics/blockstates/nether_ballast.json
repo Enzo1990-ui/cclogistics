@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "": [
+      { "model": "cclogistics:block/nether_ballast" },
+      { "model": "cclogistics:block/nether_ballast", "y": 90 },
+      { "model": "cclogistics:block/nether_ballast", "y": 180 },
+      { "model": "cclogistics:block/nether_ballast", "y": 270 }
+    ]
+  }
+}

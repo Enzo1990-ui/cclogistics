@@ -1,0 +1,26 @@
+{
+  "parent": "cclogistics:root",
+  "display": {
+    "icon": {
+      "id": "cclogistics:logistics_linker"
+    },
+    "title": "The WiFi is Broke",
+    "description": "Craft a Logistics Linker to manually pair your factory to your colony.",
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "has_linker": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "cclogistics:logistics_linker"
+          }
+        ]
+      }
+    }
+  }
+}

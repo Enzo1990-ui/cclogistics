@@ -1,0 +1,25 @@
+{
+  "parent": "cclogistics:efficiency_best",
+  "display": {
+    "icon": {
+      "id": "cclogistics:logistics_controller"
+    },
+    "title": "Same-Day Shipping",
+    "description": "Obtain a Logistics Controller to enable Express Package routing.",
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true
+  },
+  "criteria": {
+    "has_controller": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "cclogistics:logistics_controller"
+          }
+        ]
+      }
+    }
+  }
+}

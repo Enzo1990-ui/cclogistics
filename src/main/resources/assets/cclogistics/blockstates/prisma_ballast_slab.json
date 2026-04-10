@@ -1,0 +1,13 @@
+{
+  "variants": {
+    "type=bottom": {
+      "model": "cclogistics:block/prisma_ballast_slab"
+    },
+    "type=double": {
+      "model": "cclogistics:block/prisma_ballast"
+    },
+    "type=top": {
+      "model": "cclogistics:block/prisma_ballast_slab_top"
+    }
+  }
+}

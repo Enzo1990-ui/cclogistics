@@ -1,0 +1,25 @@
+{
+  "parent": "cclogistics:efficiency_best",
+  "display": {
+    "icon": {
+      "id": "cclogistics:foremens_hut"
+    },
+    "title": "Paper Pusher",
+    "description": "Set up a Foremen's Hut to track your live shipping manifests.",
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true
+  },
+  "criteria": {
+    "has_hut": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "cclogistics:foremens_hut"
+          }
+        ]
+      }
+    }
+  }
+}

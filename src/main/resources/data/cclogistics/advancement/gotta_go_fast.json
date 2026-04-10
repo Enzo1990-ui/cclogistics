@@ -1,0 +1,26 @@
+{
+  "parent": "cclogistics:root",
+  "display": {
+    "icon": {
+      "id": "cclogistics:logistics_path"
+    },
+    "title": "Gotta Go Fast!",
+    "description": "Craft a Logistics Path and enjoy the speed.",
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "has_linker": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "cclogistics:logistics_path"
+          }
+        ]
+      }
+    }
+  }
+}

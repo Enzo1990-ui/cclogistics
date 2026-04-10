@@ -1,0 +1,25 @@
+{
+  "parent": "cclogistics:wifi_broke",
+  "display": {
+    "icon": {
+      "id": "cclogistics:freight_depot"
+    },
+    "title": "Efficiency at its Best",
+    "description": "Build a Freight Depot and prepare to automate your supply lines.",
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true
+  },
+  "criteria": {
+    "has_depot": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "cclogistics:freight_depot"
+          }
+        ]
+      }
+    }
+  }
+}

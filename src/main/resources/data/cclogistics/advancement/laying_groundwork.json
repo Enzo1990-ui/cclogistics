@@ -1,0 +1,25 @@
+{
+  "parent": "cclogistics:root",
+  "display": {
+    "icon": {
+      "id": "cclogistics:gray_ballast"
+    },
+    "title": "Laying the Groundwork",
+    "description": "Craft Railway Ballast to decorate your new train depot.",
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true
+  },
+  "criteria": {
+    "has_ballast": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "tags": "cclogistics:ballasts"
+          }
+        ]
+      }
+    }
+  }
+}

@@ -4,8 +4,49 @@
   "block.cclogistics.freight_depot": "Freight Depot",
   "block.cclogistics.foremens_hut": "Foremen's Hut",
   "block.cclogistics.logistics_controller": "Logistics Controller",
+  "block.cclogistics.track_clearance": "Colonist Track Blocker",
+
+  "block.cclogistics.white_ballast": "White Ballast",
+  "block.cclogistics.blue_gray_ballast": "Blue Gray Ballast",
+  "block.cclogistics.sandy_ballast": "Sandy Ballast",
+  "block.cclogistics.prisma_ballast": "Prisma Ballast",
+  "block.cclogistics.pink_gray_ballast": "Pink Gray Ballast",
+  "block.cclogistics.gray_ballast": "Gray Ballast",
+  "block.cclogistics.light_gray_ballast": "Light Gray Ballast",
+  "block.cclogistics.dark_gray_ballast": "Dark Gray Ballast",
+  "block.cclogistics.purpur_ballast": "Purpur Ballast",
+  "block.cclogistics.brown_gray_ballast": "Brown Gray Ballast",
+  "block.cclogistics.green_gray_ballast": "Green Gray Ballast",
+  "block.cclogistics.red_ballast": "Red Ballast",
+  "block.cclogistics.black_ballast": "Black Ballast",
+  "block.cclogistics.nether_ballast": "Nether Ballast",
+
+  "block.cclogistics.white_ballast_slab": "White Ballast Slab",
+  "block.cclogistics.blue_gray_ballast_slab": "Blue Gray Ballast Slab",
+  "block.cclogistics.sandy_ballast_slab": "Sandy Ballast Slab",
+  "block.cclogistics.prisma_ballast_slab": "Prisma Ballast Slab",
+  "block.cclogistics.pink_gray_ballast_slab": "Pink Gray Ballast Slab",
+  "block.cclogistics.gray_ballast_slab": "Gray Ballast Slab",
+  "block.cclogistics.light_gray_ballast_slab": "Light Gray Ballast Slab",
+  "block.cclogistics.dark_gray_ballast_slab": "Dark Gray Ballast Slab",
+  "block.cclogistics.purpur_ballast_slab": "Purpur Ballast Slab",
+  "block.cclogistics.brown_gray_ballast_slab": "Brown Gray Ballast Slab",
+  "block.cclogistics.green_gray_ballast_slab": "Green Gray Ballast Slab",
+  "block.cclogistics.red_ballast_slab": "Red Ballast Slab",
+  "block.cclogistics.black_ballast_slab": "Black Ballast Slab",
+  "block.cclogistics.nether_ballast_slab": "Nether Ballast Slab",
+
+  "block.cclogistics.logistics_path": "Logistics Path",
+  "block.cclogistics.black_logistics_path": "Black Logistics Path",
+  "block.cclogistics.white_logistics_path": "White Logistics Path",
+  "block.cclogistics.mossy_logistics_path": "Mossy Logistics Path",
+  "block.cclogistics.illuminated_path": "Illuminated Path",
+  "block.cclogistics.illuminated_white_path": "Illuminated White Path",
+  "block.cclogistics.illuminated_black_path": "Illuminated Black Path",
+  "block.cclogistics.illuminated_mossy_path": "Illuminated Mossy Path",
 
   "item.cclogistics.logistics_linker": "Logistics Linker",
+  "item.cclogistics.edible_ballast": "Suspicious Ballast",
 
   "com.cclogistics.building.freight_depot": "Freight Depot",
   "com.cclogistics.building.foremens_hut": "Foremen's Hut",
@@ -13,11 +54,11 @@
   "com.cclogistics.job.logistics_coordinator": "Logistics Coordinator",
   "com.cclogistics.job.packer_agent": "Packer Agent",
   "com.cclogistics.job.freight_inspector": "Freight Inspector",
-  
+
   "cclogistics:logistics_coordinator.job.desc": "The Logistics Coordinator stands at the Town Hall and relays colony requests to the Logistics network.",
   "cclogistics:packer_agent.job.desc": "The Packer Agent moves items between the Freight Depot and the Warehouse, boxing and unboxing them.",
   "cclogistics:freight_inspector.job.desc": "The Freight Inspector monitors incoming and outgoing logistics tasks.",
-  
+
   "cclogistics:logistics_coordinator.skills.desc": "Benefits from high Knowledge and Agility to process requests faster.",
   "cclogistics:packer_agent.skills.desc": "Benefits from high Stamina and Agility to move packages quickly.",
   "cclogistics:freight_inspector.skills.desc": "Benefits from high Intelligence and Knowledge to accurately inspect manifests."

@@ -2,6 +2,8 @@
   "replace": false,
   "values": [
     "create:track",
-    "cclogistics:track_clearance"
+    "cclogistics:track_clearance",
+    "#cclogistics:ballasts",
+    "#cclogistics:ballasts_slab"
   ]
 }

@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "": [
+      { "model": "cclogistics:block/white_ballast" },
+      { "model": "cclogistics:block/white_ballast", "y": 90 },
+      { "model": "cclogistics:block/white_ballast", "y": 180 },
+      { "model": "cclogistics:block/white_ballast", "y": 270 }
+    ]
+  }
+}

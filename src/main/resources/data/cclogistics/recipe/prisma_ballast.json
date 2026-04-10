@@ -1,0 +1,26 @@
+{
+  "type": "create:mixing",
+  "ingredients": [
+    {
+      "item": "minecraft:gravel"
+    },
+    {
+      "item": "minecraft:dark_prismarine"
+    },
+    {
+      "item": "minecraft:prismarine_crystals"
+    },
+    {
+      "type": "neoforge:single",
+      "amount": 1000,
+      "fluid": "minecraft:water"
+    }
+  ],
+  "results": [
+    {
+      "id": "cclogistics:prisma_ballast",
+      "count": 16
+    }
+  ],
+  "heatRequirement": "none"
+}

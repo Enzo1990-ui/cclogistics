@@ -51,7 +51,7 @@ public class CCLConfig {
         builder.push("General");
         coordinatorCooldown = builder
                 .comment("The base interval (in ticks) between Logistics Coordinator request checks. Default: 1200 (60 seconds). Min: 200, Max: 12000.")
-                .defineInRange("coordinatorCooldown", 1200, 200, 12000);
+                .defineInRange("coordinatorCooldown", 500, 200, 1200);
 
         warehouseExcessThreshold = builder
                 .comment("The number of items to keep in the Warehouse before the Coordinator flags them as excess for export. Default: 128.")

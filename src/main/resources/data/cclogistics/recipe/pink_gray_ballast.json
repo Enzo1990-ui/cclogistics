@@ -1,0 +1,26 @@
+{
+  "type": "create:mixing",
+  "ingredients": [
+    {
+      "item": "minecraft:gravel"
+    },
+    {
+      "item": "minecraft:white_terracotta"
+    },
+    {
+      "item": "minecraft:pink_petals"
+    },
+    {
+      "type": "neoforge:single",
+      "amount": 1000,
+      "fluid": "minecraft:water"
+    }
+  ],
+  "results": [
+    {
+      "id": "cclogistics:pink_gray_ballast",
+      "count": 16
+    }
+  ],
+  "heatRequirement": "none"
+}

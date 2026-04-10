@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/slab_top",
+  "textures": {
+    "bottom": "cclogistics:block/nether_ballast",
+    "top": "cclogistics:block/nether_ballast",
+    "side": "cclogistics:block/nether_ballast"
+  }
+}

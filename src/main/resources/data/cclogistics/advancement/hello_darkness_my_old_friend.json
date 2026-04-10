@@ -1,0 +1,26 @@
+{
+  "parent": "cclogistics:gotta_go_fast",
+  "display": {
+    "icon": {
+      "id": "cclogistics:black_logistics_path"
+    },
+    "title": "Hello Darkness My Old Friend",
+    "description": "Craft a Illuminated Logistics Path and enjoy the speed and the light.",
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "has_linker": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "cclogistics:illuminated_logistics_path"
+          }
+        ]
+      }
+    }
+  }
+}

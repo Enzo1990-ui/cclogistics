@@ -1,0 +1,55 @@
+{
+  "parent": "cclogistics:gotta_go_fast",
+  "display": {
+    "icon": {
+      "id": "cclogistics:logistics_path"
+    },
+    "title": "I've Got The Need For Speed!",
+    "description": "Collect all the paths.",
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true
+  },
+  "criteria": {
+    "has_white": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "cclogistics:logistics_path"
+          }
+        ]
+      }
+    },
+    "has_blue_gray": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "cclogistics:white_logistics_path"
+          }
+        ]
+      }
+    },
+    "has_sandy": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "cclogistics:black_logistics_path"
+          }
+        ]
+      }
+    },
+    "has_prisma": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "cclogistics:mossy_logistics_path"
+          }
+        ]
+      }
+    }
+  }
+}

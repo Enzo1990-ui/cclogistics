@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "": [
+      { "model": "cclogistics:block/mossy_logistics_path" },
+      { "model": "cclogistics:block/mossy_logistics_path", "y": 90 },
+      { "model": "cclogistics:block/mossy_logistics_path", "y": 180 },
+      { "model": "cclogistics:block/mossy_logistics_path", "y": 270 }
+    ]
+  }
+}

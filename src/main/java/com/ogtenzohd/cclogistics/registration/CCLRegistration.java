@@ -1,6 +1,8 @@
 package com.ogtenzohd.cclogistics.registration;
 
 import com.ogtenzohd.cclogistics.CreateColonyLogistics;
+import com.ogtenzohd.cclogistics.blocks.custom.BallastBlock;
+import com.ogtenzohd.cclogistics.blocks.custom.LogisticsPathBlock;
 import com.ogtenzohd.cclogistics.blocks.custom.TrackClearanceBlock;
 import com.ogtenzohd.cclogistics.blocks.custom.foremens_hut.ForemenHutBlock;
 import com.ogtenzohd.cclogistics.blocks.custom.foremens_hut.ForemenHutBlockEntity;
@@ -19,6 +21,8 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.SlabBlock;
+import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
@@ -56,6 +60,60 @@ public class CCLRegistration {
     public static final DeferredHolder<Block, TrackClearanceBlock> TRACK_CLEARANCE_BLOCK = BLOCKS.register("track_clearance",
             () -> new TrackClearanceBlock());
 
+    public static final DeferredHolder<Block, LogisticsPathBlock> LOGISTICS_PATH = BLOCKS.register("logistics_path",
+            () -> new LogisticsPathBlock(BlockBehaviour.Properties.of() .mapColor(net.minecraft.world.level.material.MapColor.STONE) .strength(1.5f) .sound(SoundType.STONE) .requiresCorrectToolForDrops() .speedFactor(1.3f)));
+
+    public static final DeferredHolder<Block, LogisticsPathBlock> BLACK_LOGISTICS_PATH = BLOCKS.register("black_logistics_path",
+            () -> new LogisticsPathBlock(BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_BLACK).strength(1.5f).sound(SoundType.STONE).speedFactor(1.3f)));
+
+    public static final DeferredHolder<Block, LogisticsPathBlock> WHITE_LOGISTICS_PATH = BLOCKS.register("white_logistics_path",
+            () -> new LogisticsPathBlock(BlockBehaviour.Properties.of().mapColor(MapColor.SNOW).strength(1.5f).sound(SoundType.STONE).speedFactor(1.3f)));
+
+    public static final DeferredHolder<Block, LogisticsPathBlock> MOSSY_LOGISTICS_PATH = BLOCKS.register("mossy_logistics_path",
+            () -> new LogisticsPathBlock(BlockBehaviour.Properties.of().mapColor(MapColor.PLANT).strength(1.5f).sound(SoundType.STONE).speedFactor(1.3f)));
+
+    public static final DeferredHolder<Block, LogisticsPathBlock> ILLUMINATED_PATH = BLOCKS.register("illuminated_path",
+            () -> new LogisticsPathBlock(BlockBehaviour.Properties.of().mapColor(MapColor.STONE).strength(1.5f).sound(SoundType.GLASS).speedFactor(1.3f).lightLevel(state -> 12).noOcclusion()));
+
+    public static final DeferredHolder<Block, LogisticsPathBlock> ILLUMINATED_BLACK_PATH = BLOCKS.register("illuminated_black_path",
+            () -> new LogisticsPathBlock(BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_BLACK).strength(1.5f).sound(SoundType.GLASS).speedFactor(1.3f).lightLevel(state -> 12).noOcclusion()));
+
+    public static final DeferredHolder<Block, LogisticsPathBlock> ILLUMINATED_WHITE_PATH = BLOCKS.register("illuminated_white_path",
+            () -> new LogisticsPathBlock(BlockBehaviour.Properties.of().mapColor(MapColor.SNOW).strength(1.5f).sound(SoundType.GLASS).speedFactor(1.3f).lightLevel(state -> 12).noOcclusion()));
+
+    public static final DeferredHolder<Block, LogisticsPathBlock> ILLUMINATED_MOSSY_PATH = BLOCKS.register("illuminated_mossy_path",
+            () -> new LogisticsPathBlock(BlockBehaviour.Properties.of().mapColor(MapColor.PLANT).strength(1.5f).sound(SoundType.GLASS).speedFactor(1.3f).lightLevel(state -> 12).noOcclusion()));
+
+    public static final DeferredHolder<Block, BallastBlock> WHITE_BALLAST = registerColoredBallast("white", MapColor.SNOW);
+    public static final DeferredHolder<Block, BallastBlock> BLUE_GRAY_BALLAST = registerColoredBallast("blue_gray", MapColor.COLOR_LIGHT_BLUE);
+    public static final DeferredHolder<Block, BallastBlock> SANDY_BALLAST = registerColoredBallast("sandy", MapColor.COLOR_YELLOW);
+    public static final DeferredHolder<Block, BallastBlock> PRISMA_BALLAST = registerColoredBallast("prisma", MapColor.COLOR_LIGHT_GREEN);
+    public static final DeferredHolder<Block, BallastBlock> PINK_GRAY_BALLAST = registerColoredBallast("pink_gray", MapColor.COLOR_PINK);
+    public static final DeferredHolder<Block, BallastBlock> GRAY_BALLAST = registerColoredBallast("gray", MapColor.COLOR_GRAY);
+    public static final DeferredHolder<Block, BallastBlock> LIGHT_GRAY_BALLAST = registerColoredBallast("light_gray", MapColor.COLOR_LIGHT_GRAY);
+    public static final DeferredHolder<Block, BallastBlock> DARK_GRAY_BALLAST = registerColoredBallast("dark_gray", MapColor.COLOR_CYAN);
+    public static final DeferredHolder<Block, BallastBlock> PURPUR_BALLAST = registerColoredBallast("purpur", MapColor.COLOR_PURPLE);
+    public static final DeferredHolder<Block, BallastBlock> BROWN_GRAY_BALLAST = registerColoredBallast("brown_gray", MapColor.COLOR_BROWN);
+    public static final DeferredHolder<Block, BallastBlock> GREEN_GRAY_BALLAST = registerColoredBallast("green_gray", MapColor.COLOR_GREEN);
+    public static final DeferredHolder<Block, BallastBlock> RED_BALLAST = registerColoredBallast("red", MapColor.COLOR_RED);
+    public static final DeferredHolder<Block, BallastBlock> BLACK_BALLAST = registerColoredBallast("black", MapColor.COLOR_BLACK);
+    public static final DeferredHolder<Block, BallastBlock> NETHER_BALLAST = registerColoredBallast("nether", MapColor.COLOR_RED);
+
+    public static final DeferredHolder<Block, SlabBlock> WHITE_BALLAST_SLAB = registerColoredBallastSlab("white", MapColor.SNOW);
+    public static final DeferredHolder<Block, SlabBlock> BLUE_GRAY_BALLAST_SLAB = registerColoredBallastSlab("blue_gray", MapColor.COLOR_LIGHT_BLUE);
+    public static final DeferredHolder<Block, SlabBlock> SANDY_BALLAST_SLAB = registerColoredBallastSlab("sandy", MapColor.COLOR_YELLOW);
+    public static final DeferredHolder<Block, SlabBlock> PRISMA_BALLAST_SLAB = registerColoredBallastSlab("prisma", MapColor.COLOR_LIGHT_GREEN);
+    public static final DeferredHolder<Block, SlabBlock> PINK_GRAY_BALLAST_SLAB = registerColoredBallastSlab("pink_gray", MapColor.COLOR_PINK);
+    public static final DeferredHolder<Block, SlabBlock> GRAY_BALLAST_SLAB = registerColoredBallastSlab("gray", MapColor.COLOR_GRAY);
+    public static final DeferredHolder<Block, SlabBlock> LIGHT_GRAY_BALLAST_SLAB = registerColoredBallastSlab("light_gray", MapColor.COLOR_LIGHT_GRAY);
+    public static final DeferredHolder<Block, SlabBlock> DARK_GRAY_BALLAST_SLAB = registerColoredBallastSlab("dark_gray", MapColor.COLOR_CYAN);
+    public static final DeferredHolder<Block, SlabBlock> PURPUR_BALLAST_SLAB = registerColoredBallastSlab("purpur", MapColor.COLOR_PURPLE);
+    public static final DeferredHolder<Block, SlabBlock> BROWN_GRAY_BALLAST_SLAB = registerColoredBallastSlab("brown_gray", MapColor.COLOR_BROWN);
+    public static final DeferredHolder<Block, SlabBlock> GREEN_GRAY_BALLAST_SLAB = registerColoredBallastSlab("green_gray", MapColor.COLOR_GREEN);
+    public static final DeferredHolder<Block, SlabBlock> RED_BALLAST_SLAB = registerColoredBallastSlab("red", MapColor.COLOR_RED);
+    public static final DeferredHolder<Block, SlabBlock> BLACK_BALLAST_SLAB = registerColoredBallastSlab("black", MapColor.COLOR_BLACK);
+    public static final DeferredHolder<Block, SlabBlock> NETHER_BALLAST_SLAB = registerColoredBallastSlab("nether", MapColor.COLOR_RED);
+
     // --- ITEMS ---
     public static final DeferredHolder<Item, BlockItem> LOGISTICS_CONTROLLER_ITEM = ITEMS.register("logistics_controller",
             () -> new BlockItem(LOGISTICS_CONTROLLER_BLOCK.get(), new Item.Properties()));
@@ -71,6 +129,33 @@ public class CCLRegistration {
 
     public static final DeferredHolder<Item, BlockItem> TRACK_CLEARANCE_ITEM = ITEMS.register("track_clearance",
             () -> new BlockItem(TRACK_CLEARANCE_BLOCK.get(), new Item.Properties()));
+
+    public static final DeferredHolder<Item, BlockItem> LOGISTICS_PATH_ITEM = ITEMS.register("logistics_path",
+            () -> new BlockItem(LOGISTICS_PATH.get(), new Item.Properties()));
+
+    public static final DeferredHolder<Item, BlockItem> BLACK_LOGISTICS_PATH_ITEM = ITEMS.register("black_logistics_path",
+            () -> new BlockItem(BLACK_LOGISTICS_PATH.get(), new Item.Properties()));
+
+    public static final DeferredHolder<Item, BlockItem> WHITE_LOGISTICS_PATH_ITEM = ITEMS.register("white_logistics_path",
+            () -> new BlockItem(WHITE_LOGISTICS_PATH.get(), new Item.Properties()));
+
+    public static final DeferredHolder<Item, BlockItem> MOSSY_LOGISTICS_PATH_ITEM = ITEMS.register("mossy_logistics_path",
+            () -> new BlockItem(MOSSY_LOGISTICS_PATH.get(), new Item.Properties()));
+
+    public static final DeferredHolder<Item, BlockItem> ILLUMINATED_PATH_ITEM = ITEMS.register("illuminated_path",
+            () -> new BlockItem(ILLUMINATED_PATH.get(), new Item.Properties()));
+
+    public static final DeferredHolder<Item, BlockItem> ILLUMINATED_BLACK_PATH_ITEM = ITEMS.register("illuminated_black_path",
+            () -> new BlockItem(ILLUMINATED_BLACK_PATH.get(), new Item.Properties()));
+
+    public static final DeferredHolder<Item, BlockItem> ILLUMINATED_WHITE_PATH_ITEM = ITEMS.register("illuminated_white_path",
+            () -> new BlockItem(ILLUMINATED_WHITE_PATH.get(), new Item.Properties()));
+
+    public static final DeferredHolder<Item, BlockItem> ILLUMINATED_MOSSY_PATH_ITEM = ITEMS.register("illuminated_mossy_path",
+            () -> new BlockItem(ILLUMINATED_MOSSY_PATH.get(), new Item.Properties()));
+
+    public static final DeferredHolder<Item, Item> EDIBLE_BALLAST = ITEMS.register("edible_ballast",
+            () -> new Item(new Item.Properties().stacksTo(1).food(new net.minecraft.world.food.FoodProperties.Builder().nutrition(1).saturationModifier(0.1f).alwaysEdible().build())));
 
     // --- BLOCK ENTITIES ---
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<LogisticsControllerBlockEntity>> LOGISTICS_CONTROLLER_BE =
@@ -105,6 +190,42 @@ public class CCLRegistration {
                 output.accept(FOREMEN_HUT_ITEM.get());
                 output.accept(LOGISTICS_LINKER.get());
                 output.accept(TRACK_CLEARANCE_BLOCK.get());
+                output.accept(WHITE_BALLAST.get());
+                output.accept(SANDY_BALLAST.get());
+                output.accept(GRAY_BALLAST.get());
+                output.accept(LIGHT_GRAY_BALLAST.get());
+                output.accept(DARK_GRAY_BALLAST.get());
+                output.accept(BROWN_GRAY_BALLAST.get());
+                output.accept(PRISMA_BALLAST.get());
+                output.accept(NETHER_BALLAST.get());
+                output.accept(BLUE_GRAY_BALLAST.get());
+                output.accept(PINK_GRAY_BALLAST.get());
+                output.accept(PURPUR_BALLAST.get());
+                output.accept(RED_BALLAST.get());
+                output.accept(BLACK_BALLAST.get());
+                output.accept(GREEN_GRAY_BALLAST.get());
+                output.accept(LOGISTICS_PATH_ITEM.get());
+                output.accept(BLACK_LOGISTICS_PATH_ITEM.get());
+                output.accept(WHITE_LOGISTICS_PATH_ITEM.get());
+                output.accept(MOSSY_LOGISTICS_PATH_ITEM.get());
+                output.accept(ILLUMINATED_PATH_ITEM.get());
+                output.accept(ILLUMINATED_BLACK_PATH_ITEM.get());
+                output.accept(ILLUMINATED_WHITE_PATH_ITEM.get());
+                output.accept(ILLUMINATED_MOSSY_PATH_ITEM.get());
+                output.accept(WHITE_BALLAST_SLAB.get());
+                output.accept(BLUE_GRAY_BALLAST_SLAB.get());
+                output.accept(SANDY_BALLAST_SLAB.get());
+                output.accept(PRISMA_BALLAST_SLAB.get());
+                output.accept(PINK_GRAY_BALLAST_SLAB.get());
+                output.accept(GRAY_BALLAST_SLAB.get());
+                output.accept(LIGHT_GRAY_BALLAST_SLAB.get());
+                output.accept(DARK_GRAY_BALLAST_SLAB.get());
+                output.accept(PURPUR_BALLAST_SLAB.get());
+                output.accept(BROWN_GRAY_BALLAST_SLAB.get());
+                output.accept(GREEN_GRAY_BALLAST_SLAB.get());
+                output.accept(RED_BALLAST_SLAB.get());
+                output.accept(BLACK_BALLAST_SLAB.get());
+                output.accept(NETHER_BALLAST_SLAB.get());
             }).build());
 
     public static void register(IEventBus eventBus) {
@@ -114,7 +235,7 @@ public class CCLRegistration {
         MENU_TYPES.register(eventBus);
         CREATIVE_TABS.register(eventBus);
     }
-    
+
     // --- CAPABILITY REGISTRATION ---
     @SubscribeEvent
 	public static void registerCapabilities(RegisterCapabilitiesEvent event) {
@@ -123,5 +244,31 @@ public class CCLRegistration {
         CCLRegistration.FREIGHT_DEPOT_BE.get(),
         (blockEntity, context) -> blockEntity.getBuildingInventory()
     );
+
 }
+    private static DeferredHolder<Block, BallastBlock> registerColoredBallast(String colorName, MapColor mapColor) {
+        DeferredHolder<Block, BallastBlock> block = BLOCKS.register(colorName + "_ballast",
+                () -> new BallastBlock(BlockBehaviour.Properties.of()
+                        .mapColor(mapColor)
+                        .strength(1.5f)
+                        .sound(net.minecraft.world.level.block.SoundType.GRAVEL)));
+
+        ITEMS.register(colorName + "_ballast",
+                () -> new BlockItem(block.get(), new Item.Properties()));
+
+        return block;
+    }
+
+    private static DeferredHolder<Block, SlabBlock> registerColoredBallastSlab(String colorName, MapColor mapColor) {
+        DeferredHolder<Block, SlabBlock> block = BLOCKS.register(colorName + "_ballast_slab",
+                () -> new SlabBlock(BlockBehaviour.Properties.of()
+                        .mapColor(mapColor)
+                        .strength(1.5f)
+                        .sound(SoundType.GRAVEL)));
+
+        ITEMS.register(colorName + "_ballast_slab",
+                () -> new BlockItem(block.get(), new Item.Properties()));
+
+        return block;
+    }
 }

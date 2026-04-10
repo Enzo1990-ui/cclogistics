@@ -1,0 +1,25 @@
+{
+  "parent": "cclogistics:root",
+  "display": {
+    "icon": {
+      "id": "cclogistics:track_clearance"
+    },
+    "title": "Mind the Gap!",
+    "description": "Obtain a Track Clearance block to protect your citizens from high-speed trains.",
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true
+  },
+  "criteria": {
+    "has_clearance": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "cclogistics:track_clearance"
+          }
+        ]
+      }
+    }
+  }
+}

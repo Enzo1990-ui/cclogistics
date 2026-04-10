@@ -1,0 +1,155 @@
+{
+  "parent": "cclogistics:laying_groundwork",
+  "display": {
+    "icon": {
+      "id": "cclogistics:prisma_ballast"
+    },
+    "title": "Rainbow Track",
+    "description": "Collect all 14 colors of Railway Ballast.",
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true
+  },
+  "criteria": {
+    "has_white": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "cclogistics:white_ballast"
+          }
+        ]
+      }
+    },
+    "has_blue_gray": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "cclogistics:blue_gray_ballast"
+          }
+        ]
+      }
+    },
+    "has_sandy": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "cclogistics:sandy_ballast"
+          }
+        ]
+      }
+    },
+    "has_prisma": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "cclogistics:prisma_ballast"
+          }
+        ]
+      }
+    },
+    "has_pink_gray": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "cclogistics:pink_gray_ballast"
+          }
+        ]
+      }
+    },
+    "has_gray": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "cclogistics:gray_ballast"
+          }
+        ]
+      }
+    },
+    "has_light_gray": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "cclogistics:light_gray_ballast"
+          }
+        ]
+      }
+    },
+    "has_dark_gray": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "cclogistics:dark_gray_ballast"
+          }
+        ]
+      }
+    },
+    "has_purpur": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "cclogistics:purpur_ballast"
+          }
+        ]
+      }
+    },
+    "has_brown_gray": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "cclogistics:brown_gray_ballast"
+          }
+        ]
+      }
+    },
+    "has_green_gray": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "cclogistics:green_gray_ballast"
+          }
+        ]
+      }
+    },
+    "has_red": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "cclogistics:red_ballast"
+          }
+        ]
+      }
+    },
+    "has_black": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "cclogistics:black_ballast"
+          }
+        ]
+      }
+    },
+    "has_nether": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "cclogistics:nether_ballast"
+          }
+        ]
+      }
+    }
+  }
+}

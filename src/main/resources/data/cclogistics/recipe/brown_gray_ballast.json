@@ -1,0 +1,26 @@
+{
+  "type": "create:mixing",
+  "ingredients": [
+    {
+      "item": "minecraft:gravel"
+    },
+    {
+      "item": "minecraft:mud"
+    },
+    {
+      "item": "minecraft:stick"
+    },
+    {
+      "type": "neoforge:single",
+      "amount": 1000,
+      "fluid": "minecraft:water"
+    }
+  ],
+  "results": [
+    {
+      "id": "cclogistics:brown_gray_ballast",
+      "count": 16
+    }
+  ],
+  "heatRequirement": "none"
+}

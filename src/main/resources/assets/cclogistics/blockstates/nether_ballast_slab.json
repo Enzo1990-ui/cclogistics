@@ -1,0 +1,13 @@
+{
+  "variants": {
+    "type=bottom": {
+      "model": "cclogistics:block/nether_ballast_slab"
+    },
+    "type=double": {
+      "model": "cclogistics:block/nether_ballast"
+    },
+    "type=top": {
+      "model": "cclogistics:block/nether_ballast_slab_top"
+    }
+  }
+}

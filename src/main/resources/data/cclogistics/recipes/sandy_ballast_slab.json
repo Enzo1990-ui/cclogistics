@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "BBB"
+  ],
+  "key": {
+    "B": {
+      "item": "cclogistics:sandy_ballast"
+    }
+  },
+  "result": {
+    "id": "cclogistics:sandy_ballast_slab",
+    "count": 6
+  }
+}

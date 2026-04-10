@@ -1,0 +1,25 @@
+{
+  "variants": {
+    "": [
+      { "model": "cclogistics:block/logistics_path" },
+      { "model": "cclogistics:block/logistics_path", "y": 90 },
+      { "model": "cclogistics:block/logistics_path", "y": 180 },
+      { "model": "cclogistics:block/logistics_path", "y": 270 },
+
+      { "model": "cclogistics:block/logistics_path_1" },
+      { "model": "cclogistics:block/logistics_path_1", "y": 90 },
+      { "model": "cclogistics:block/logistics_path_1", "y": 180 },
+      { "model": "cclogistics:block/logistics_path_1", "y": 270 },
+
+      { "model": "cclogistics:block/logistics_path_2" },
+      { "model": "cclogistics:block/logistics_path_2", "y": 90 },
+      { "model": "cclogistics:block/logistics_path_2", "y": 180 },
+      { "model": "cclogistics:block/logistics_path_2", "y": 270 },
+
+      { "model": "cclogistics:block/logistics_path_3" },
+      { "model": "cclogistics:block/logistics_path_3", "y": 90 },
+      { "model": "cclogistics:block/logistics_path_3", "y": 180 },
+      { "model": "cclogistics:block/logistics_path_3", "y": 270 }
+    ]
+  }
+}

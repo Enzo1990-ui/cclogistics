@@ -1,0 +1,13 @@
+{
+  "variants": {
+    "type=bottom": {
+      "model": "cclogistics:block/white_ballast_slab"
+    },
+    "type=double": {
+      "model": "cclogistics:block/white_ballast"
+    },
+    "type=top": {
+      "model": "cclogistics:block/white_ballast_slab_top"
+    }
+  }
+}

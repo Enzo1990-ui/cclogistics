@@ -1,0 +1,26 @@
+{
+  "type": "create:mixing",
+  "ingredients": [
+    {
+      "item": "minecraft:gravel"
+    },
+    {
+      "item": "minecraft:sandstone"
+    },
+    {
+      "item": "minecraft:gold_ingot"
+    },
+    {
+      "type": "neoforge:single",
+      "amount": 1000,
+      "fluid": "minecraft:water"
+    }
+  ],
+  "results": [
+    {
+      "id": "cclogistics:sandy_ballast",
+      "count": 16
+    }
+  ],
+  "heatRequirement": "none"
+}

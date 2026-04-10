@@ -1,0 +1,30 @@
+{
+  "type": "create:mixing",
+  "ingredients": [
+    {
+      "item": "minecraft:gravel"
+    },
+    {
+      "item": "minecraft:cyan_terracotta"
+    },
+    {
+      "item": "minecraft:powder_snow_bucket"
+    },
+    {
+      "type": "neoforge:single",
+      "amount": 1000,
+      "fluid": "minecraft:water"
+    }
+  ],
+  "results": [
+    {
+      "id": "cclogistics:blue_gray_ballast",
+      "count": 16
+    },
+    {
+      "id": "minecraft:bucket",
+      "count": 1
+    }
+  ],
+  "heatRequirement": "none"
+}
