@@ -5,19 +5,24 @@
       "id": "cclogistics:black_logistics_path"
     },
     "title": "Hello Darkness My Old Friend",
-    "description": "Craft a Illuminated Logistics Path and enjoy the speed and the light.",
+    "description": "Craft an Illuminated Logistics Path and enjoy the speed and the light.",
     "frame": "task",
     "show_toast": true,
     "announce_to_chat": true,
     "hidden": false
   },
   "criteria": {
-    "has_linker": {
+    "has_path": {
       "trigger": "minecraft:inventory_changed",
       "conditions": {
         "items": [
           {
-            "items": "cclogistics:illuminated_logistics_path"
+            "items": [
+              "cclogistics:illuminated_path",
+              "cclogistics:illuminated_black_path",
+              "cclogistics:illuminated_white_path",
+              "cclogistics:illuminated_mossy_path"
+            ]
           }
         ]
       }

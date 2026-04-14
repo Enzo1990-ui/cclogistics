@@ -116,6 +116,7 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                         BlockEntity be = job.getColony().getWorld().getBlockEntity(depotB.getPosition());
                         if (be instanceof FreightDepotBlockEntity depotBE) {
                             java.util.List<ManifestEntry> inbox = depotBE.getAndClearCacheA();
+                            playScribbleSound();
                             this.clipboardCacheB.addAll(inbox);
             
                             if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) {
