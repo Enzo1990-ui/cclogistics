@@ -1,0 +1,8 @@
+{
+  "replace": false,
+  "values": [
+    "cclogistics:logistics_funnel",
+    "cclogistics:freight_scanner",
+    "cclogistics:logistics_controller"
+  ]
+}

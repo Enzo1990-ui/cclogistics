@@ -45,13 +45,14 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
     private boolean isTrainParked = false;
     private long lastTrainCheck = 0;
     private BlockPos manualTickerPos = null;
-    
+    private int playerStockTarget = 128;
+
     private final Set<Object> activeRequestIds = new HashSet<>();
     private final List<String> pendingIncomingLogs = new ArrayList<>();
     private final List<String> pendingOutgoingLogs = new ArrayList<>();
     private final Map<Item, Long> protectedImports = new HashMap<>();
     private final Set<String> sentRequestIds = new HashSet<>();
-    
+
     private final List<com.ogtenzohd.cclogistics.colony.ai.LogisticsCoordinatorAI.ManifestEntry> cacheA = new ArrayList<>();
 
     private BlockPos importVaultPos;
@@ -78,7 +79,7 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
         }
         return null;
     }
-    
+
     public IItemHandler getBuildingInventory() {
         return this.inventory;
     }
@@ -88,7 +89,7 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
         tickerBehaviour = new ColonyLogisticsBehaviour(this);
         behaviours.add(tickerBehaviour);
     }
-    
+
     @Override
     public net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket getUpdatePacket() {
         return net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket.create(this);
@@ -98,29 +99,29 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
     public CompoundTag getUpdateTag(HolderLookup.Provider provider) {
         return saveCustomOnly(provider);
     }
-    
+
     @Override
     public void tick() {
-        super.tick(); 
+        super.tick();
         if (level != null && !level.isClientSide) {
             if (level.getGameTime() % 1200 == 0) {
                 long currentTime = level.getGameTime();
                 boolean removed = protectedImports.entrySet().removeIf(entry -> currentTime >= entry.getValue());
                 if (removed) setChanged();
             }
-            
+
             if (level.getGameTime() % 100 == 0) {
                 coordinateLogistics();
             }
-            
+
             if (level.getGameTime() % 200 == 0) {
                 updateStructureInfo();
             }
-            
+
             if (level.getGameTime() - lastTrainCheck >= 20) {
                 lastTrainCheck = level.getGameTime();
                 boolean trainFound = checkForParkedTrain();
-                
+
                 if (trainFound != isTrainParked) {
                     isTrainParked = trainFound;
                     IBuilding b = getBuilding();
@@ -141,10 +142,10 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
             }
         }
     }
-    
+
     public void setImportPos(BlockPos pos) { this.importVaultPos = pos; }
     public void setExportPos(BlockPos pos) { this.exportVaultPos = pos; }
-    
+
     public BlockPos getImportPos() { return importVaultPos; }
     public BlockPos getExportPos() { return exportVaultPos; }
 
@@ -162,12 +163,12 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
         this.manualTickerPos = pos;
         setChanged();
     }
-    
+
     private StockTickerBlockEntity resolveTicker() {
         if (manualTickerPos != null && level != null && level.getBlockEntity(manualTickerPos) instanceof StockTickerBlockEntity be) {
             return be;
         }
-        return null; 
+        return null;
     }
 
     public void coordinateLogistics() {
@@ -180,15 +181,15 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
         if (colony == null) return;
 
         LogisticsRequestHelper.processRequests(
-            colony,
-            ticker,
-            this.activeRequestIds,
-            this.sentRequestIds,
-            (request) -> resolveAddress(request),
-            (log) -> this.addIncomingLog(log, 100),
-            (stack) -> this.protectItem(stack, 30),
-            this::updateTracker,
-            this::cacheManifestOrder
+                colony,
+                ticker,
+                this.activeRequestIds,
+                this.sentRequestIds,
+                (request) -> resolveAddress(request),
+                (log) -> this.addIncomingLog(log, 100),
+                (stack) -> this.protectItem(stack, 30),
+                this::updateTracker,
+                this::cacheManifestOrder
         );
     }
 
@@ -209,17 +210,49 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
             }
         }
     }
-    
+
+    public void updateTrackerByName(String itemName, com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackStatus status, String override) {
+        IBuilding b = getBuilding();
+        if (b != null) {
+            com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule module = b.getModule(com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.class);
+            if (module != null) {
+                for (java.util.Map.Entry<String, com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackedReq> entry : module.getRequests().entrySet()) {
+                    if (entry.getValue().itemName != null && entry.getValue().itemName.equals(itemName) && entry.getValue().status != com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackStatus.COMPLETED) {
+                        module.updateRequest(entry.getKey(), itemName, entry.getValue().amount, status, override, entry.getValue().isIncoming);
+                    }
+                }
+            }
+        }
+    }
+
+    public void updateTrackerByTrackingId(String trackingId, com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackStatus status, String override) {
+        IBuilding b = getBuilding();
+        if (b != null) {
+            com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule module = b.getModule(com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.class);
+            if (module != null) {
+                if (module.getRequests().containsKey(trackingId)) {
+                    com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackedReq req = module.getRequests().get(trackingId);
+
+                    if (status == com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackStatus.COMPLETED) {
+                        module.removeRequest(trackingId);
+                    } else {
+                        module.updateRequest(trackingId, req.itemName, req.amount, status, override, req.isIncoming);
+                    }
+                }
+            }
+        }
+    }
+
     public void protectItem(ItemStack stack, int minutes) {
         if (stack.isEmpty() || level == null) return;
-        long expireTime = level.getGameTime() + (minutes * 60 * 20); 
+        long expireTime = level.getGameTime() + (minutes * 60 * 20);
         protectedImports.put(stack.getItem(), expireTime);
         setChanged();
     }
 
     public boolean isItemProtected(ItemStack stack) {
         if (stack.isEmpty() || level == null) return false;
-        
+
         Item item = stack.getItem();
         if (protectedImports.containsKey(item)) {
             long expiry = protectedImports.get(item);
@@ -236,41 +269,41 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
 
     private String resolveAddress(IRequest<?> request) {
         if (request.getRequester() != null) {
-            
+
             if (request.getRequester().getLocation().getInDimensionLocation().equals(worldPosition)) {
-                return null; 
+                return null;
             }
-            
+
             if (request.getRequester() instanceof com.minecolonies.api.colony.ICitizenData citizen) {
                 String jobName = "";
                 if (citizen.getJob() != null) {
-                     jobName = citizen.getJob().getClass().getSimpleName().toLowerCase();
+                    jobName = citizen.getJob().getClass().getSimpleName().toLowerCase();
                 }
-                if (jobName.contains("logisticscoordinator") || 
-                    jobName.contains("packeragent") || 
-                    jobName.contains("freightinspector")) {
-                    return null; 
+                if (jobName.contains("logisticscoordinator") ||
+                        jobName.contains("packeragent") ||
+                        jobName.contains("freightinspector")) {
+                    return null;
                 }
-                
+
                 if (citizen.getWorkBuilding() != null && citizen.getWorkBuilding().getPosition().equals(worldPosition)) {
                     return null;
                 }
             }
 
             String reqClass = request.getRequester().getClass().getSimpleName().toLowerCase();
-            if (reqClass.contains("logisticscoordinator") || 
-                reqClass.contains("packeragent") || 
-                reqClass.contains("freightinspector") || 
-                reqClass.contains("freightdepot")) {
+            if (reqClass.contains("logisticscoordinator") ||
+                    reqClass.contains("packeragent") ||
+                    reqClass.contains("freightinspector") ||
+                    reqClass.contains("freightdepot")) {
                 return null;
             }
         }
-        
+
         if (this.colonyName != null && !this.colonyName.isEmpty()) {
             return this.colonyName;
         }
-        
-        return null; 
+
+        return null;
     }
 
     public void addIncomingLog(String log, int limit) {
@@ -291,27 +324,27 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
 
     public List<String> collectIncomingLogs() {
         List<String> clipboard = new ArrayList<>(this.pendingIncomingLogs);
-        this.pendingIncomingLogs.clear(); 
+        this.pendingIncomingLogs.clear();
         return clipboard;
     }
 
     public List<String> collectOutgoingLogs() {
         List<String> clipboard = new ArrayList<>(this.pendingOutgoingLogs);
-        this.pendingOutgoingLogs.clear(); 
+        this.pendingOutgoingLogs.clear();
         return clipboard;
     }
-    
+
     private boolean checkForParkedTrain() {
         if (level == null) return false;
-        
+
         net.minecraft.world.phys.AABB searchArea = new net.minecraft.world.phys.AABB(worldPosition).inflate(10.0);
-        
-        java.util.List<com.simibubi.create.content.trains.entity.CarriageContraptionEntity> trains = 
-            level.getEntitiesOfClass(com.simibubi.create.content.trains.entity.CarriageContraptionEntity.class, searchArea);
-        
+
+        java.util.List<com.simibubi.create.content.trains.entity.CarriageContraptionEntity> trains =
+                level.getEntitiesOfClass(com.simibubi.create.content.trains.entity.CarriageContraptionEntity.class, searchArea);
+
         for (var train : trains) {
             if (train.getDeltaMovement().lengthSqr() < 0.01) {
-                return true; 
+                return true;
             }
         }
         return false;
@@ -326,12 +359,14 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
     public AbstractContainerMenu createMenu(int id, Inventory inv, Player player) {
         return new FreightDepotMenu(id, inv, this, new net.minecraft.world.inventory.SimpleContainerData(2));
     }
-    
+
     public void setColonyName(String name) { this.colonyName = name; setChanged(); }
     public void setCityTarget(String target) { this.cityTarget = target; setChanged(); }
-    
+    public void setPlayerStockTarget(int target) { this.playerStockTarget = target; setChanged(); }
+
     public String getColonyName() { return colonyName; }
     public String getCityTarget() { return cityTarget; }
+    public int getPlayerStockTarget() { return playerStockTarget; }
 
     public List<com.ogtenzohd.cclogistics.colony.ai.LogisticsCoordinatorAI.ManifestEntry> getAndClearCacheA() {
         List<com.ogtenzohd.cclogistics.colony.ai.LogisticsCoordinatorAI.ManifestEntry> copy = new ArrayList<>(this.cacheA);
@@ -349,7 +384,7 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
         if (this.cacheA.size() >= 10) {
             this.cacheA.remove(0);
         }
-        
+
         ItemStack cachedStack = item.copy();
         cachedStack.setCount(1);
         this.cacheA.add(new com.ogtenzohd.cclogistics.colony.ai.LogisticsCoordinatorAI.ManifestEntry(cachedStack, targetAddress, amount));
@@ -361,8 +396,9 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
         super.saveAdditional(tag, provider);
         tag.putString("ColonyName", colonyName);
         tag.putString("CityTarget", cityTarget);
+        tag.putInt("PlayerStockTarget", playerStockTarget);
         if (manualTickerPos != null) tag.put("TickerLink", NbtUtils.writeBlockPos(manualTickerPos));
-        
+
         tag.put("Inventory", inventory.serializeNBT(provider));
 
         ListTag protectionList = new ListTag();
@@ -398,14 +434,15 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
         }
         tag.put("SentRequestIds", sentIds);
     }
-    
+
     @Override
     public void loadAdditional(CompoundTag tag, HolderLookup.Provider provider) {
         super.loadAdditional(tag, provider);
         if (tag.contains("ColonyName")) colonyName = tag.getString("ColonyName");
         if (tag.contains("CityTarget")) cityTarget = tag.getString("CityTarget");
+        if (tag.contains("PlayerStockTarget")) playerStockTarget = tag.getInt("PlayerStockTarget"); // Load the stock target
         if (tag.contains("TickerLink")) manualTickerPos = NbtUtils.readBlockPos(tag, "TickerLink").orElse(null);
-        
+
         if (tag.contains("Inventory")) {
             inventory.deserializeNBT(provider, tag.getCompound("Inventory"));
         }
@@ -422,7 +459,7 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
                 }
             }
         }
-        
+
         if (tag.contains("CacheA")) {
             cacheA.clear();
             ListTag list = tag.getList("CacheA", Tag.TAG_COMPOUND);
@@ -436,7 +473,7 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
                 }
             }
         }
-        
+
         if (tag.contains("ActiveRequestIds")) {
             activeRequestIds.clear();
             ListTag list = tag.getList("ActiveRequestIds", Tag.TAG_COMPOUND);

@@ -4,8 +4,12 @@
     "icon": {
       "id": "cclogistics:track_clearance"
     },
-    "title": "Mind the Gap!",
-    "description": "Obtain a Track Clearance block to protect your citizens from high-speed trains.",
+    "title": {
+      "translate": "advancement.cclogistics.mind_the_gap.title"
+    },
+    "description": {
+      "translate": "advancement.cclogistics.mind_the_gap.desc"
+    },
     "frame": "task",
     "show_toast": true,
     "announce_to_chat": true

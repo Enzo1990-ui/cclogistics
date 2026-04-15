@@ -11,6 +11,6 @@
         <text value="Target City:" size="180 10" pos="10 65" color="dark_gray"/>
         <textfield id="cityTargetInput" size="180 16" pos="10 78" maxlength="32"/>
 
-        <button id="saveBtn" label="Save Settings" size="80 20" pos="60 100" source="minecolonies:textures/gui/builderhut/builder_button_medium.png"/>
+        <button id="saveBtn" label="Save Settings" size="80 20" pos="60 145" source="minecolonies:textures/gui/builderhut/builder_button_medium.png"/>
     </pane>
 </window>

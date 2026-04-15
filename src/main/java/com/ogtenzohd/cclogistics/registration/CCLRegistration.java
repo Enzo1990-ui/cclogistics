@@ -10,12 +10,23 @@ import com.ogtenzohd.cclogistics.blocks.custom.foremens_hut.menu.ForemenHutMenu;
 import com.ogtenzohd.cclogistics.blocks.custom.freight_depot.FreightDepotBlock;
 import com.ogtenzohd.cclogistics.blocks.custom.freight_depot.FreightDepotBlockEntity;
 import com.ogtenzohd.cclogistics.blocks.custom.freight_depot.menu.FreightDepotMenu;
+import com.ogtenzohd.cclogistics.blocks.custom.funnel.LogisticsFunnelBlock;
+import com.ogtenzohd.cclogistics.blocks.custom.funnel.LogisticsFunnelBlockEntity;
 import com.ogtenzohd.cclogistics.blocks.custom.logistics_controller.LogisticsControllerBlock;
 import com.ogtenzohd.cclogistics.blocks.custom.logistics_controller.LogisticsControllerBlockEntity;
 import com.ogtenzohd.cclogistics.blocks.custom.logistics_controller.menu.LogisticsControllerMenu;
+import com.ogtenzohd.cclogistics.blocks.custom.scanner.FreightScannerBlock;
+import com.ogtenzohd.cclogistics.blocks.custom.scanner.FreightScannerBlockEntity;
+import com.ogtenzohd.cclogistics.compat.FreightDepotDisplaySource;
 import com.ogtenzohd.cclogistics.items.LogisticsLinkerItem;
+import com.ogtenzohd.cclogistics.items.PortableTrackerItem;
+import com.simibubi.create.api.behaviour.display.DisplaySource;
+import com.simibubi.create.content.logistics.tunnel.BeltTunnelItem;
+import net.minecraft.core.Registry;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTab;
@@ -46,6 +57,12 @@ public class CCLRegistration {
     public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES = DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, MODID);
     public static final DeferredRegister<CreativeModeTab> CREATIVE_TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MODID);
     public static final DeferredRegister<MenuType<?>> MENU_TYPES = DeferredRegister.create(Registries.MENU, MODID);
+    public static final ResourceKey<Registry<DisplaySource>> DISPLAY_SOURCE_KEY =
+            ResourceKey.createRegistryKey(ResourceLocation.fromNamespaceAndPath("create", "display_source"));
+    public static final DeferredRegister<DisplaySource> DISPLAY_SOURCES =
+            DeferredRegister.create(DISPLAY_SOURCE_KEY, CreateColonyLogistics.MODID);
+    public static final DeferredHolder<DisplaySource, FreightDepotDisplaySource> FREIGHT_MANIFEST =
+            DISPLAY_SOURCES.register("freight_depot", FreightDepotDisplaySource::new);
 
     // --- BLOCKS ---
     public static final DeferredHolder<Block, LogisticsControllerBlock> LOGISTICS_CONTROLLER_BLOCK = BLOCKS.register("logistics_controller",
@@ -58,7 +75,7 @@ public class CCLRegistration {
             () -> new ForemenHutBlock(BlockBehaviour.Properties.of().mapColor(MapColor.WOOD).strength(2.5f)));
 
     public static final DeferredHolder<Block, TrackClearanceBlock> TRACK_CLEARANCE_BLOCK = BLOCKS.register("track_clearance",
-            () -> new TrackClearanceBlock());
+            TrackClearanceBlock::new);
 
     public static final DeferredHolder<Block, LogisticsPathBlock> LOGISTICS_PATH = BLOCKS.register("logistics_path",
             () -> new LogisticsPathBlock(BlockBehaviour.Properties.of() .mapColor(net.minecraft.world.level.material.MapColor.STONE) .strength(1.5f) .sound(SoundType.STONE) .requiresCorrectToolForDrops() .speedFactor(1.3f)));
@@ -114,6 +131,12 @@ public class CCLRegistration {
     public static final DeferredHolder<Block, SlabBlock> BLACK_BALLAST_SLAB = registerColoredBallastSlab("black", MapColor.COLOR_BLACK);
     public static final DeferredHolder<Block, SlabBlock> NETHER_BALLAST_SLAB = registerColoredBallastSlab("nether", MapColor.COLOR_RED);
 
+    public static final DeferredHolder<Block, FreightScannerBlock> FREIGHT_SCANNER_BLOCK = BLOCKS.register("freight_scanner",
+            () -> new FreightScannerBlock(BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_GRAY).strength(1.5f).noOcclusion()));
+
+    public static final DeferredHolder<Block, LogisticsFunnelBlock> LOGISTICS_FUNNEL_BLOCK = BLOCKS.register("logistics_funnel",
+            () -> new LogisticsFunnelBlock(BlockBehaviour.Properties.of().mapColor(net.minecraft.world.level.material.MapColor.COLOR_YELLOW).strength(1.5f).noOcclusion()));
+
     // --- ITEMS ---
     public static final DeferredHolder<Item, BlockItem> LOGISTICS_CONTROLLER_ITEM = ITEMS.register("logistics_controller",
             () -> new BlockItem(LOGISTICS_CONTROLLER_BLOCK.get(), new Item.Properties()));
@@ -157,6 +180,15 @@ public class CCLRegistration {
     public static final DeferredHolder<Item, Item> EDIBLE_BALLAST = ITEMS.register("edible_ballast",
             () -> new Item(new Item.Properties().stacksTo(1).food(new net.minecraft.world.food.FoodProperties.Builder().nutrition(1).saturationModifier(0.1f).alwaysEdible().build())));
 
+    public static final DeferredHolder<Item, BeltTunnelItem> FREIGHT_SCANNER_ITEM = ITEMS.register("freight_scanner",
+            () -> new BeltTunnelItem(FREIGHT_SCANNER_BLOCK.get(), new Item.Properties()));
+
+    public static final DeferredHolder<Item, BlockItem> LOGISTICS_FUNNEL_ITEM = ITEMS.register("logistics_funnel",
+            () -> new BlockItem(LOGISTICS_FUNNEL_BLOCK.get(), new Item.Properties()));
+
+    public static final DeferredHolder<Item, PortableTrackerItem> PORTABLE_TRACKER_ITEM = ITEMS.register("portable_tracker",
+            () -> new PortableTrackerItem(new Item.Properties().stacksTo(1)));
+
     // --- BLOCK ENTITIES ---
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<LogisticsControllerBlockEntity>> LOGISTICS_CONTROLLER_BE =
             BLOCK_ENTITIES.register("logistics_controller", () ->
@@ -169,6 +201,14 @@ public class CCLRegistration {
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<ForemenHutBlockEntity>> FOREMEN_HUT_BE =
             BLOCK_ENTITIES.register("foremens_hut", () ->
                     BlockEntityType.Builder.of(ForemenHutBlockEntity::new, FOREMEN_HUT_BLOCK.get()).build(null));
+
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<FreightScannerBlockEntity>> FREIGHT_SCANNER_BE =
+            BLOCK_ENTITIES.register("freight_scanner", () ->
+                    BlockEntityType.Builder.of(FreightScannerBlockEntity::new, FREIGHT_SCANNER_BLOCK.get()).build(null));
+
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<LogisticsFunnelBlockEntity>> LOGISTICS_FUNNEL_BE =
+            BLOCK_ENTITIES.register("logistics_funnel", () ->
+                    BlockEntityType.Builder.of(LogisticsFunnelBlockEntity::new, LOGISTICS_FUNNEL_BLOCK.get()).build(null));
 
     // --- MENUS ---
     public static final DeferredHolder<MenuType<?>, MenuType<FreightDepotMenu>> FREIGHT_DEPOT_MENU =
@@ -226,6 +266,8 @@ public class CCLRegistration {
                 output.accept(RED_BALLAST_SLAB.get());
                 output.accept(BLACK_BALLAST_SLAB.get());
                 output.accept(NETHER_BALLAST_SLAB.get());
+                output.accept(FREIGHT_SCANNER_ITEM.get());
+                output.accept(LOGISTICS_FUNNEL_ITEM.get());
             }).build());
 
     public static void register(IEventBus eventBus) {
@@ -234,6 +276,7 @@ public class CCLRegistration {
         BLOCK_ENTITIES.register(eventBus);
         MENU_TYPES.register(eventBus);
         CREATIVE_TABS.register(eventBus);
+        DISPLAY_SOURCES.register(eventBus);
     }
 
     // --- CAPABILITY REGISTRATION ---

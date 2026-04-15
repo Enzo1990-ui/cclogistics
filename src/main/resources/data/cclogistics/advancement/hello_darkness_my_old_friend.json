@@ -4,8 +4,12 @@
     "icon": {
       "id": "cclogistics:black_logistics_path"
     },
-    "title": "Hello Darkness My Old Friend",
-    "description": "Craft an Illuminated Logistics Path and enjoy the speed and the light.",
+    "title": {
+      "translate": "advancement.cclogistics.hello_darkness_my_old_friend.title"
+    },
+    "description": {
+      "translate": "advancement.cclogistics.hello_darkness_my_old_friend.desc"
+    },
     "frame": "task",
     "show_toast": true,
     "announce_to_chat": true,

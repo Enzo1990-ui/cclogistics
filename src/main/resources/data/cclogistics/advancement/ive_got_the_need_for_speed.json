@@ -4,8 +4,12 @@
     "icon": {
       "id": "cclogistics:logistics_path"
     },
-    "title": "I've Got The Need For Speed!",
-    "description": "Collect all the paths.",
+    "title": {
+      "translate": "advancement.cclogistics.ive_got_the_need_for_speed.title"
+    },
+    "description": {
+      "translate": "advancement.cclogistics.ive_got_the_need_for_speed.desc"
+    },
     "frame": "challenge",
     "show_toast": true,
     "announce_to_chat": true

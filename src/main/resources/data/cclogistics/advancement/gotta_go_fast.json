@@ -4,8 +4,12 @@
     "icon": {
       "id": "cclogistics:logistics_path"
     },
-    "title": "Gotta Go Fast!",
-    "description": "Craft a Logistics Path and enjoy the speed.",
+    "title": {
+      "translate": "advancement.cclogistics.gotta_go_fast.title"
+    },
+    "description": {
+      "translate": "advancement.cclogistics.gotta_go_fast.desc"
+    },
     "frame": "task",
     "show_toast": true,
     "announce_to_chat": true,

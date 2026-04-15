@@ -4,8 +4,12 @@
     "icon": {
       "id": "cclogistics:prisma_ballast"
     },
-    "title": "Rainbow Track",
-    "description": "Collect all 14 colors of Railway Ballast.",
+    "title": {
+      "translate": "advancement.cclogistics.rainbow_track.title"
+    },
+    "description": {
+      "translate": "advancement.cclogistics.rainbow_track.desc"
+    },
     "frame": "challenge",
     "show_toast": true,
     "announce_to_chat": true

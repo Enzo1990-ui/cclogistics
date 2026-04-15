@@ -4,13 +4,16 @@
 
     <text id="title" size="190 12" pos="20 15" color="black" label="Active Freight Requests"/>
 
-    <button id="btnIncoming" size="80 15" pos="10 30" label="Incoming"/>
-    <button id="btnOutgoing" size="80 15" pos="100 30" label="Outgoing"/>
+    <button id="btnIncoming" size="60 15" pos="20 30" label="Incoming"/>
+    <button id="btnOutgoing" size="60 15" pos="110 30" label="Outgoing"/>
 
     <list id="requestList" size="170 170" pos="10 50">
         <box size="100% 24" linewidth="1">
             <text id="requestText" size="100% 10" pos="2 2" color="black"/>
             <text id="statusText" size="100% 10" pos="2 12" color="black"/>
+            <button id="btnDelete" label="X" size="10 10" pos="150 2" color="dark_red" source="minecolonies:textures/gui/builderhut/builder_button_small.png" />
         </box>
     </list>
+
+    <button id="btnPrintClipboard" label="Print Clipboard" size="100 15" pos="45 225" source="minecolonies:textures/gui/builderhut/builder_button_medium.png" color="black" />
 </window>

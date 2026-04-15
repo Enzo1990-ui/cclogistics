@@ -3,12 +3,11 @@ package com.ogtenzohd.cclogistics.colony.buildings.gui;
 import com.ldtteam.blockui.Pane;
 import com.ldtteam.blockui.controls.Button;
 import com.ldtteam.blockui.controls.Text;
+import com.ldtteam.blockui.views.BOWindow;
 import com.ldtteam.blockui.views.ScrollingList;
-import com.minecolonies.core.client.gui.AbstractModuleWindow;
 import com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule;
 import com.ogtenzohd.cclogistics.colony.buildings.moduleviews.FreightTrackerModuleView;
 import com.ogtenzohd.cclogistics.network.CancelFreightRequestPacket;
-import com.ogtenzohd.cclogistics.network.RequestPortableTrackerPacket;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -18,7 +17,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public class FreightTrackerWindow extends AbstractModuleWindow<FreightTrackerModuleView> {
+// EXTENDS BOWindow directly so it doesn't pull in the building tabs!
+public class PortableTrackerWindow extends BOWindow {
 
     private final ScrollingList requestList;
     private final FreightTrackerModuleView moduleView;
@@ -26,27 +26,23 @@ public class FreightTrackerWindow extends AbstractModuleWindow<FreightTrackerMod
 
     private final Button btnIncoming;
     private final Button btnOutgoing;
-    private final Button btnPrintClipboard;
     private boolean viewingIncoming = true;
 
-    public FreightTrackerWindow(FreightTrackerModuleView moduleView) {
-        super(moduleView, ResourceLocation.fromNamespaceAndPath("cclogistics", "gui/window/freight_tracker_module.xml"));
+    public PortableTrackerWindow(FreightTrackerModuleView moduleView) {
+        super(ResourceLocation.fromNamespaceAndPath("cclogistics", "gui/window/freight_tracker_module.xml"));
         this.moduleView = moduleView;
-        this.requestList = window.findPaneOfTypeByID("requestList", ScrollingList.class);
-        this.btnIncoming = window.findPaneOfTypeByID("btnIncoming", Button.class);
-        this.btnOutgoing = window.findPaneOfTypeByID("btnOutgoing", Button.class);
 
-        this.btnPrintClipboard = window.findPaneOfTypeByID("btnPrintClipboard", Button.class);
+        this.requestList = this.findPaneOfTypeByID("requestList", ScrollingList.class);
+        this.btnIncoming = this.findPaneOfTypeByID("btnIncoming", Button.class);
+        this.btnOutgoing = this.findPaneOfTypeByID("btnOutgoing", Button.class);
+
+        Button btnPrintClipboard = this.findPaneOfTypeByID("btnPrintClipboard", Button.class);
+        if (btnPrintClipboard != null) {
+            btnPrintClipboard.hide();
+        }
 
         if (this.btnIncoming != null) this.btnIncoming.setHandler(this::onIncomingClicked);
         if (this.btnOutgoing != null) this.btnOutgoing.setHandler(this::onOutgoingClicked);
-
-        if (this.btnPrintClipboard != null) {
-            this.btnPrintClipboard.setHandler(btn -> {
-                BlockPos pos = moduleView.getBuildingView().getPosition();
-                PacketDistributor.sendToServer(new RequestPortableTrackerPacket(pos));
-            });
-        }
 
         updateButtonStates();
         updateList();
@@ -98,7 +94,6 @@ public class FreightTrackerWindow extends AbstractModuleWindow<FreightTrackerMod
 
                 Text itemText = rowPane.findPaneOfTypeByID("requestText", Text.class);
                 Text statusText = rowPane.findPaneOfTypeByID("statusText", Text.class);
-
                 Button btnDelete = rowPane.findPaneOfTypeByID("btnDelete", Button.class);
 
                 if (btnDelete != null) {
@@ -111,7 +106,6 @@ public class FreightTrackerWindow extends AbstractModuleWindow<FreightTrackerMod
                 if (itemText != null && statusText != null) {
                     String rawName = (req.itemName != null && !req.itemName.isEmpty()) ? req.itemName : "Loading...";
                     String shortItemName = rawName.length() > 20 ? rawName.substring(0, 17) + "..." : rawName;
-
                     itemText.setText(Component.literal(req.amount + "x " + shortItemName).withStyle(net.minecraft.ChatFormatting.BLACK));
 
                     String symbol = "• ";
@@ -121,21 +115,13 @@ public class FreightTrackerWindow extends AbstractModuleWindow<FreightTrackerMod
                         statusStr = "§7[" + req.override + "]";
                     }
 
-                    if (statusStr.contains("Out of Stock")) {
-                        symbol = "§c✖ ";
-                    } else if (statusStr.contains("Complete")) {
-                        symbol = "§2✔ ";
-                    } else if (statusStr.contains("Delivering")) {
-                        symbol = "§d➔ ";
-                    } else if (statusStr.contains("Depot Received")) {
-                        symbol = "§b📦 ";
-                    } else if (statusStr.contains("En Route")) {
-                        symbol = "§a🚂 ";
-                    } else if (statusStr.contains("Ticker Received")) {
-                        symbol = "§e📥 ";
-                    } else if (statusStr.contains("Requested")) {
-                        symbol = "§e⏳ ";
-                    }
+                    if (statusStr.contains("Out of Stock")) symbol = "§c✖ ";
+                    else if (statusStr.contains("Complete")) symbol = "§2✔ ";
+                    else if (statusStr.contains("Delivering")) symbol = "§d➔ ";
+                    else if (statusStr.contains("Depot Received")) symbol = "§b📦 ";
+                    else if (statusStr.contains("En Route")) symbol = "§a🚂 ";
+                    else if (statusStr.contains("Ticker Received")) symbol = "§e📥 ";
+                    else if (statusStr.contains("Requested")) symbol = "§e⏳ ";
 
                     statusText.setText(Component.literal(symbol + statusStr));
                 }

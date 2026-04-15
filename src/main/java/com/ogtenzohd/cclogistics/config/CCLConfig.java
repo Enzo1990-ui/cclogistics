@@ -13,22 +13,24 @@ public class CCLConfig {
 
     public final ModConfigSpec.EnumValue<DebugLevel> debugLevel;
     public final ModConfigSpec.IntValue coordinatorCooldown;
-    public final ModConfigSpec.IntValue warehouseExcessThreshold;
-    
+
+    // --- NEW: MAX PLAYER CONFIG ---
+    public final ModConfigSpec.IntValue maxPlayerStockRequest;
+
     // --- SKILL SCALING ---
     public final ModConfigSpec.BooleanValue enableSkillScaling;
     public final ModConfigSpec.IntValue baseSpellingMistakeChance;
     public final ModConfigSpec.IntValue cooldownReductionPerIntel;
     public final ModConfigSpec.DoubleValue speedBoostPerAthletics;
     public final ModConfigSpec.IntValue packerCapacityPerStrength;
-    
+
     // --- PACKER LIMITS ---
     public final ModConfigSpec.IntValue packersLevel1;
     public final ModConfigSpec.IntValue packersLevel2;
     public final ModConfigSpec.IntValue packersLevel3;
     public final ModConfigSpec.IntValue packersLevel4;
     public final ModConfigSpec.IntValue packersLevel5;
-	
+
     static {
         Pair<CCLConfig, ModConfigSpec> specPair = new ModConfigSpec.Builder().configure(CCLConfig::new);
         SPEC = specPair.getRight();
@@ -47,15 +49,15 @@ public class CCLConfig {
                 .comment("Set the debug logging level. Options: NONE, LOGISTICS, BRIDGE, CITIZENS, ALL. Default: NONE")
                 .defineEnum("debugLevel", DebugLevel.NONE);
         builder.pop();
-        
+
         builder.push("General");
         coordinatorCooldown = builder
                 .comment("The base interval (in ticks) between Logistics Coordinator request checks. Default: 1200 (60 seconds). Min: 200, Max: 12000.")
                 .defineInRange("coordinatorCooldown", 500, 200, 1200);
 
-        warehouseExcessThreshold = builder
-                .comment("The number of items to keep in the Warehouse before the Coordinator flags them as excess for export. Default: 128.")
-                .defineInRange("warehouseExcessThreshold", 128, 1, 100000);
+        maxPlayerStockRequest = builder
+                .comment("The maximum amount of stock a player can configure a logistics block to hold (Server limit). Default: 512.")
+                .defineInRange("maxPlayerStockRequest", 512, 1, 100000);
         builder.pop();
 
         builder.push("Citizen Skill Scaling");
@@ -79,7 +81,7 @@ public class CCLConfig {
                 .comment("How many stacks a Packer Agent can carry per level of Strength. Default: 1")
                 .defineInRange("packerCapacityPerStrength", 1, 0, 9);
         builder.pop();
-        
+
         builder.push("Packer Agents Capacity");
         packersLevel1 = builder.comment("Max Packer Agents for a Level 1 Freight Depot. Default: 2").defineInRange("packersLevel1", 2, 1, 50);
         packersLevel2 = builder.comment("Max Packer Agents for a Level 2 Freight Depot. Default: 3").defineInRange("packersLevel2", 3, 1, 50);

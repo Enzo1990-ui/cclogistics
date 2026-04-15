@@ -4,8 +4,12 @@
     "icon": {
       "id": "cclogistics:foremens_hut"
     },
-    "title": "Paper Pusher",
-    "description": "Set up a Foremen's Hut to track your live shipping manifests.",
+    "title": {
+      "translate": "advancement.cclogistics.paper_pusher.title"
+    },
+    "description": {
+      "translate": "advancement.cclogistics.paper_pusher.desc"
+    },
     "frame": "task",
     "show_toast": true,
     "announce_to_chat": true

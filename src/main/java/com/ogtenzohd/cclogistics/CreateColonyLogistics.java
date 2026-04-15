@@ -8,6 +8,7 @@ import com.ogtenzohd.cclogistics.config.CCLConfig;
 import com.ogtenzohd.cclogistics.network.CCLPackets;
 import com.ogtenzohd.cclogistics.registration.CCLRegistration;
 import com.ogtenzohd.cclogistics.util.HolidayManager;
+import com.simibubi.create.api.behaviour.display.DisplaySource;
 import net.minecraft.sounds.SoundEvent;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -42,6 +43,11 @@ public class CreateColonyLogistics {
         LOGGER.info("[CCLogistics] Common Setup Starting...");
         
         event.enqueueWork(() -> {
+
+            DisplaySource.BY_BLOCK_ENTITY.add(
+                    CCLRegistration.FREIGHT_DEPOT_BE.get(),
+                    CCLRegistration.FREIGHT_MANIFEST.get()
+            );
 
             Map<String, Map<EventType, List<Tuple<SoundEvent, SoundEvent>>>> sounds = ModSoundEvents.CITIZEN_SOUND_EVENTS;
             
