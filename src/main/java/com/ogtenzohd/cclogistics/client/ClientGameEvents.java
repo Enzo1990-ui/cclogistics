@@ -2,17 +2,22 @@ package com.ogtenzohd.cclogistics.client;
 
 import com.ogtenzohd.cclogistics.CreateColonyLogistics;
 import com.ogtenzohd.cclogistics.registration.CCLRegistration;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.event.entity.player.ItemTooltipEvent;
 
 @EventBusSubscriber(modid = CreateColonyLogistics.MODID, value = Dist.CLIENT)
 public class ClientGameEvents {
@@ -44,6 +49,29 @@ public class ClientGameEvents {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    public static void onTooltip(ItemTooltipEvent event) {
+        ItemStack stack = event.getItemStack();
+        if (stack.isEmpty()) return;
+        String hover = stack.getHoverName().getString().toLowerCase();
+        if (hover.contains("package") || hover.contains("box")) {
+            try {
+                net.minecraft.world.item.component.CustomData customData = stack.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
+                if (customData != null) {
+                    CompoundTag tag = customData.copyTag();
+                    if (tag.contains("cclogistics:tracking_id")) {
+                        String fullId = tag.getString("cclogistics:tracking_id");
+                        String shortId = fullId.length() > 6 ? fullId.substring(fullId.length() - 6).toUpperCase() : fullId.toUpperCase();
+                        event.getToolTip().add(Component.empty());
+                        event.getToolTip().add(Component.literal("⬛ CCL Shipping Label").withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.BOLD));
+                        event.getToolTip().add(Component.literal(" Tracking ID: *" + shortId).withStyle(ChatFormatting.GRAY));
+                        event.getToolTip().add(Component.literal(" Status: Logged in Network").withStyle(ChatFormatting.DARK_GREEN));
+                    }
+                }
+            } catch (Exception ignored) {
             }
         }
     }

@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " E ",
+    " O ",
+    " C "
+  ],
+  "key": {
+    "E": {
+      "item": "create:electron_tube"
+    },
+    "O": {
+      "item": "structurize:sceptergold"
+    },
+    "C": {
+      "item": "create:brass_casing"
+    }
+  },
+  "result": {
+    "id": "cclogistics:freight_scanner",
+    "count": 1
+  }
+}

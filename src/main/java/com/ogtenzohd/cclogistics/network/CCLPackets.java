@@ -46,6 +46,18 @@ public class CCLPackets {
                 UpdateExpressModulePacket.STREAM_CODEC,
                 UpdateExpressModulePacket::handle
         );
+
+        registrar.playToServer(
+                RequestPortableTrackerPacket.TYPE,
+                RequestPortableTrackerPacket.STREAM_CODEC,
+                RequestPortableTrackerPacket::handle
+        );
+
+        registrar.playToServer(
+                CancelFreightRequestPacket.TYPE,
+                CancelFreightRequestPacket.STREAM_CODEC,
+                CancelFreightRequestPacket::handle
+        );
     }
 
     public static void sendToServer(CustomPacketPayload payload) {

@@ -7,11 +7,16 @@ import com.ldtteam.blockui.views.ScrollingList;
 import com.minecolonies.core.client.gui.AbstractModuleWindow;
 import com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule;
 import com.ogtenzohd.cclogistics.colony.buildings.moduleviews.FreightTrackerModuleView;
+import com.ogtenzohd.cclogistics.network.CancelFreightRequestPacket;
+import com.ogtenzohd.cclogistics.network.RequestPortableTrackerPacket;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class FreightTrackerWindow extends AbstractModuleWindow<FreightTrackerModuleView> {
 
@@ -21,18 +26,27 @@ public class FreightTrackerWindow extends AbstractModuleWindow<FreightTrackerMod
 
     private final Button btnIncoming;
     private final Button btnOutgoing;
+    private final Button btnPrintClipboard;
     private boolean viewingIncoming = true;
 
     public FreightTrackerWindow(FreightTrackerModuleView moduleView) {
         super(moduleView, ResourceLocation.fromNamespaceAndPath("cclogistics", "gui/window/freight_tracker_module.xml"));
         this.moduleView = moduleView;
         this.requestList = window.findPaneOfTypeByID("requestList", ScrollingList.class);
-
         this.btnIncoming = window.findPaneOfTypeByID("btnIncoming", Button.class);
         this.btnOutgoing = window.findPaneOfTypeByID("btnOutgoing", Button.class);
 
+        this.btnPrintClipboard = window.findPaneOfTypeByID("btnPrintClipboard", Button.class);
+
         if (this.btnIncoming != null) this.btnIncoming.setHandler(this::onIncomingClicked);
         if (this.btnOutgoing != null) this.btnOutgoing.setHandler(this::onOutgoingClicked);
+
+        if (this.btnPrintClipboard != null) {
+            this.btnPrintClipboard.setHandler(btn -> {
+                BlockPos pos = moduleView.getBuildingView().getPosition();
+                PacketDistributor.sendToServer(new RequestPortableTrackerPacket(pos));
+            });
+        }
 
         updateButtonStates();
         updateList();
@@ -57,19 +71,17 @@ public class FreightTrackerWindow extends AbstractModuleWindow<FreightTrackerMod
         if (btnOutgoing != null) btnOutgoing.setEnabled(viewingIncoming);
     }
 
-
     private void updateList() {
         if (requestList == null) return;
+        List<Map.Entry<String, FreightTrackerModule.TrackedReq>> requests = new ArrayList<>();
 
-        List<FreightTrackerModule.TrackedReq> requests = new ArrayList<>();
-
-        for (FreightTrackerModule.TrackedReq req : moduleView.requests.values()) {
-            if (req.isIncoming == this.viewingIncoming) {
-                requests.add(req);
+        for (Map.Entry<String, FreightTrackerModule.TrackedReq> entry : moduleView.requests.entrySet()) {
+            if (entry.getValue().isIncoming == this.viewingIncoming) {
+                requests.add(entry);
             }
         }
 
-        requests.sort((a, b) -> Long.compare(b.timestamp, a.timestamp));
+        requests.sort((a, b) -> Long.compare(b.getValue().timestamp, a.getValue().timestamp));
 
         requestList.setDataProvider(new ScrollingList.DataProvider() {
             @Override
@@ -80,10 +92,21 @@ public class FreightTrackerWindow extends AbstractModuleWindow<FreightTrackerMod
             @Override
             public void updateElement(int index, Pane rowPane) {
                 if (index < 0 || index >= requests.size()) return;
+                Map.Entry<String, FreightTrackerModule.TrackedReq> entry = requests.get(index);
+                String trackingId = entry.getKey();
+                FreightTrackerModule.TrackedReq req = entry.getValue();
 
-                FreightTrackerModule.TrackedReq req = requests.get(index);
                 Text itemText = rowPane.findPaneOfTypeByID("requestText", Text.class);
                 Text statusText = rowPane.findPaneOfTypeByID("statusText", Text.class);
+
+                Button btnDelete = rowPane.findPaneOfTypeByID("btnDelete", Button.class);
+
+                if (btnDelete != null) {
+                    btnDelete.setHandler(btn -> {
+                        BlockPos pos = moduleView.getBuildingView().getPosition();
+                        PacketDistributor.sendToServer(new CancelFreightRequestPacket(pos, trackingId));
+                    });
+                }
 
                 if (itemText != null && statusText != null) {
                     String rawName = (req.itemName != null && !req.itemName.isEmpty()) ? req.itemName : "Loading...";

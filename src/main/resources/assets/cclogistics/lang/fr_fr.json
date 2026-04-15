@@ -1,0 +1,107 @@
+{
+  "itemGroup.cclogistics_tab": "Create: Logistique de Colonie",
+
+  "block.cclogistics.freight_depot": "Dépôt de fret",
+  "block.cclogistics.foremens_hut": "Cabane du Contremaître",
+  "block.cclogistics.logistics_controller": "Contrôleur logistique",
+  "block.cclogistics.track_clearance": "Bloqueur de voie pour colons",
+
+  "block.cclogistics.white_ballast": "Ballast blanc",
+  "block.cclogistics.blue_gray_ballast": "Ballast bleu-gris",
+  "block.cclogistics.sandy_ballast": "Ballast sableux",
+  "block.cclogistics.prisma_ballast": "Ballast prismatique",
+  "block.cclogistics.pink_gray_ballast": "Ballast rose-gris",
+  "block.cclogistics.gray_ballast": "Ballast gris",
+  "block.cclogistics.light_gray_ballast": "Ballast gris clair",
+  "block.cclogistics.dark_gray_ballast": "Ballast gris foncé",
+  "block.cclogistics.purpur_ballast": "Ballast de purpur",
+  "block.cclogistics.brown_gray_ballast": "Ballast brun-gris",
+  "block.cclogistics.green_gray_ballast": "Ballast vert-gris",
+  "block.cclogistics.red_ballast": "Ballast rouge",
+  "block.cclogistics.black_ballast": "Ballast noir",
+  "block.cclogistics.nether_ballast": "Ballast du Nether",
+
+  "block.cclogistics.white_ballast_slab": "Dalle de ballast blanc",
+  "block.cclogistics.blue_gray_ballast_slab": "Dalle de ballast bleu-gris",
+  "block.cclogistics.sandy_ballast_slab": "Dalle de ballast sableux",
+  "block.cclogistics.prisma_ballast_slab": "Dalle de ballast prismatique",
+  "block.cclogistics.pink_gray_ballast_slab": "Dalle de ballast rose-gris",
+  "block.cclogistics.gray_ballast_slab": "Dalle de ballast gris",
+  "block.cclogistics.light_gray_ballast_slab": "Dalle de ballast gris clair",
+  "block.cclogistics.dark_gray_ballast_slab": "Dalle de ballast gris foncé",
+  "block.cclogistics.purpur_ballast_slab": "Dalle de ballast de purpur",
+  "block.cclogistics.brown_gray_ballast_slab": "Dalle de ballast brun-gris",
+  "block.cclogistics.green_gray_ballast_slab": "Dalle de ballast vert-gris",
+  "block.cclogistics.red_ballast_slab": "Dalle de ballast rouge",
+  "block.cclogistics.black_ballast_slab": "Dalle de ballast noir",
+  "block.cclogistics.nether_ballast_slab": "Dalle de ballast du Nether",
+
+  "block.cclogistics.logistics_path": "Chemin logistique",
+  "block.cclogistics.black_logistics_path": "Chemin logistique noir",
+  "block.cclogistics.white_logistics_path": "Chemin logistique blanc",
+  "block.cclogistics.mossy_logistics_path": "Chemin logistique moussu",
+  "block.cclogistics.illuminated_path": "Chemin illuminé",
+  "block.cclogistics.illuminated_white_path": "Chemin blanc illuminé",
+  "block.cclogistics.illuminated_black_path": "Chemin noir illuminé",
+  "block.cclogistics.illuminated_mossy_path": "Chemin moussu illuminé",
+
+  "block.cclogistics.logistics_funnel": "Entonnoir logistique",
+  "block.cclogistics.freight_scanner": "Scanner de fret",
+
+  "item.cclogistics.logistics_linker": "Lieur logistique",
+  "item.cclogistics.edible_ballast": "Ballast suspect",
+  "item.cclogistics.portable_tracker": "Traqueur portable",
+
+  "com.cclogistics.building.freight_depot": "Dépôt de fret",
+  "com.cclogistics.building.foremens_hut": "Cabane du Contremaître",
+
+  "com.cclogistics.job.logistics_coordinator": "Coordinateur logistique",
+  "com.cclogistics.job.packer_agent": "Agent d'emballage",
+  "com.cclogistics.job.freight_inspector": "Inspecteur de fret",
+
+  "cclogistics:logistics_coordinator.job.desc": "Le Coordinateur logistique se tient à l'Hôtel de ville et relaie les demandes de la colonie au réseau logistique.",
+  "cclogistics:packer_agent.job.desc": "L'Agent d'emballage déplace les objets entre le Dépôt de fret et l'Entrepôt, en les emballant et les déballant.",
+  "cclogistics:freight_inspector.job.desc": "L'Inspecteur de fret surveille les tâches logistiques entrantes et sortantes.",
+
+  "cclogistics:logistics_coordinator.skills.desc": "Bénéficie d'une Connaissance et d'une Agilité élevées pour traiter les demandes plus rapidement.",
+  "cclogistics:packer_agent.skills.desc": "Bénéficie d'une Endurance et d'une Agilité élevées pour déplacer les paquets rapidement.",
+  "cclogistics:freight_inspector.skills.desc": "Bénéficie d'une Intelligence et d'une Connaissance élevées pour inspecter les manifestes avec précision.",
+
+  "cclogistics.display_source.freight_manifest": "Demandes du Dépôt de fret",
+
+  "advancement.cclogistics.eat_ballast.title": "Un en-cas croustillant",
+  "advancement.cclogistics.eat_ballast.desc": "Vous avez vraiment mangé le ballast des voies ferrées. Pourquoi ? Est-ce Amrris qui vous a dit de le faire ?",
+
+  "advancement.cclogistics.efficiency_best.title": "Le summum de l'efficacité",
+  "advancement.cclogistics.efficiency_best.desc": "Construisez un Dépôt de fret et préparez-vous à automatiser vos lignes d'approvisionnement.",
+
+  "advancement.cclogistics.gotta_go_fast.title": "Faut aller vite !",
+  "advancement.cclogistics.gotta_go_fast.desc": "Fabriquez un Chemin logistique et profitez de la vitesse.",
+
+  "advancement.cclogistics.hello_darkness_my_old_friend.title": "Bonjour l'obscurité, ma vieille amie",
+  "advancement.cclogistics.hello_darkness_my_old_friend.desc": "Fabriquez un Chemin logistique illuminé et profitez de la vitesse et de la lumière.",
+
+  "advancement.cclogistics.ive_got_the_need_for_speed.title": "Le besoin de vitesse !",
+  "advancement.cclogistics.ive_got_the_need_for_speed.desc": "Collectionnez tous les chemins.",
+
+  "advancement.cclogistics.laying_groundwork.title": "Poser les bases",
+  "advancement.cclogistics.laying_groundwork.desc": "Fabriquez du Ballast de voie ferrée pour décorer votre nouveau dépôt de trains.",
+
+  "advancement.cclogistics.mind_the_gap.title": "Attention à la marche !",
+  "advancement.cclogistics.mind_the_gap.desc": "Obtenez un bloc Bloqueur de voie pour protéger vos citoyens des trains à grande vitesse.",
+
+  "advancement.cclogistics.paper_pusher.title": "Gratte-papier",
+  "advancement.cclogistics.paper_pusher.desc": "Installez une Cabane du Contremaître pour suivre vos manifestes d'expédition en direct.",
+
+  "advancement.cclogistics.rainbow_track.title": "Voie Arc-en-ciel",
+  "advancement.cclogistics.rainbow_track.desc": "Collectionnez les 14 couleurs de Ballast de voie ferrée.",
+
+  "advancement.cclogistics.root.title": "Create: Logistique de Colonie",
+  "advancement.cclogistics.root.desc": "Faites le pont entre vos usines automatisées et votre ville en pleine croissance.",
+
+  "advancement.cclogistics.same_day_shipping.title": "Livraison le jour même",
+  "advancement.cclogistics.same_day_shipping.desc": "Obtenez un Contrôleur logistique pour activer l'acheminement de Colis express.",
+
+  "advancement.cclogistics.wifi_broke.title": "Le Wi-Fi est en panne",
+  "advancement.cclogistics.wifi_broke.desc": "Fabriquez un Lieur logistique pour associer manuellement votre usine à votre colonie."
+}

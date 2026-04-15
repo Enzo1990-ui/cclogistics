@@ -1,6 +1,7 @@
 package com.ogtenzohd.cclogistics.colony.buildings;
 
 import com.google.common.collect.ImmutableCollection;
+import com.ldtteam.structurize.blueprints.v1.Blueprint;
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.requestsystem.resolver.IRequestResolver;
 import com.minecolonies.api.tileentities.AbstractTileEntityColonyBuilding;
@@ -71,8 +72,8 @@ public class FreightDepotBuilding extends AbstractBuilding {
     }
 
     @Override
-    public void onUpgradeComplete(int newLevel) {
-        super.onUpgradeComplete(newLevel);
+    public void onUpgradeComplete(Blueprint blueprint, int newLevel) {
+        super.onUpgradeComplete(blueprint, newLevel);
         updateStructureData();
         forceVaultConnections();
     }

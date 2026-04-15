@@ -16,5 +16,8 @@
     <text id="cityTargetLabel" size="150 10" pos="20 85" color="black" label="Create Link:"/>
     <input id="cityTargetInput" size="150 16" pos="20 98" maxlength="32"/>
 
-    <button id="saveBtn" size="100 20" pos="50 130" label="Save Settings" source="minecolonies:textures/gui/builderhut/builder_button_medium.png" color="black"/>
+    <text id="MaxStockTarget:" size="150 10" pos="20 125" color="black" label="Max Stock Target (Stacks):"/>
+    <input id="stockTargetInput" size="100 16" pos="50 138" maxlength="6"/>
+
+    <button id="saveBtn" size="100 20" pos="50 160" label="Save Settings" source="minecolonies:textures/gui/builderhut/builder_button_medium.png" color="black"/>
 </window>

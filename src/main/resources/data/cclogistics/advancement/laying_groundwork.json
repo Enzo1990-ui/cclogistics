@@ -4,8 +4,12 @@
     "icon": {
       "id": "cclogistics:gray_ballast"
     },
-    "title": "Laying the Groundwork",
-    "description": "Craft Railway Ballast to decorate your new train depot.",
+    "title": {
+    "translate": "advancement.cclogistics.laying_groundwork.title"
+  },
+  "description": {
+    "translate": "advancement.cclogistics.laying_groundwork.desc"
+  },
     "frame": "task",
     "show_toast": true,
     "announce_to_chat": true
@@ -16,7 +20,7 @@
       "conditions": {
         "items": [
           {
-            "tags": "cclogistics:ballasts"
+            "tag": "cclogistics:ballasts"
           }
         ]
       }

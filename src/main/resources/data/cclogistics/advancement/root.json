@@ -3,8 +3,12 @@
     "icon": {
       "id": "cclogistics:logistics_linker"
     },
-    "title": "Create: Colony Logistics",
-    "description": "Bridge the gap between your automated factories and your growing town.",
+    "title": {
+      "translate": "advancement.cclogistics.root.title"
+    },
+    "description": {
+      "translate": "advancement.cclogistics.root.desc"
+    },
     "background": "minecraft:textures/gui/advancements/backgrounds/stone.png",
     "show_toast": false,
     "announce_to_chat": false,

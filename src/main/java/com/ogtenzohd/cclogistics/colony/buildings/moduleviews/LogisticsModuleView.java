@@ -17,6 +17,7 @@ public class LogisticsModuleView extends AbstractBuildingModuleView {
 
     private String clientColonyName = "";
     private String clientCreateTarget = "";
+    private int clientPlayerStockTarget = 128; // NEW
 
     public LogisticsModuleView() {
         super();
@@ -27,38 +28,36 @@ public class LogisticsModuleView extends AbstractBuildingModuleView {
         return new LogisticsWindow(this);
     }
 
-    public String getColonyName() {
-        return clientColonyName;
-    }
-
-    public String getCreateTarget() {
-        return clientCreateTarget;
-    }
-
-    public void updateData(String name, String target) {
+    public String getColonyName() { return clientColonyName; }
+    public String getCreateTarget() { return clientCreateTarget; }
+    public int getPlayerStockTarget() { return clientPlayerStockTarget; }
+    public void updateData(String name, String target, int stockTarget) {
         this.clientColonyName = name;
         this.clientCreateTarget = target;
-        
+        this.clientPlayerStockTarget = stockTarget;
+
         if (getBuildingView() != null) {
             CCLPackets.sendToServer(new UpdateLogisticsModulePacket(
-                getBuildingView().getPosition(), 
-                name, 
-                target
+                    getBuildingView().getPosition(),
+                    name,
+                    target,
+                    stockTarget
             ));
         }
     }
 
     public void syncFromBlockEntity() {
         if (getBuildingView() != null) {
-             BlockPos pos = getBuildingView().getPosition();
-             Level level = Minecraft.getInstance().level;
-             if (level != null) {
-                 BlockEntity be = level.getBlockEntity(pos);
-                 if (be instanceof FreightDepotBlockEntity depot) {
-                     this.clientColonyName = depot.getColonyName();
-                     this.clientCreateTarget = depot.getCityTarget();
-                 }
-             }
+            BlockPos pos = getBuildingView().getPosition();
+            Level level = Minecraft.getInstance().level;
+            if (level != null) {
+                BlockEntity be = level.getBlockEntity(pos);
+                if (be instanceof FreightDepotBlockEntity depot) {
+                    this.clientColonyName = depot.getColonyName();
+                    this.clientCreateTarget = depot.getCityTarget();
+                    this.clientPlayerStockTarget = depot.getPlayerStockTarget();
+                }
+            }
         }
     }
 
@@ -66,6 +65,7 @@ public class LogisticsModuleView extends AbstractBuildingModuleView {
     public void deserialize(RegistryFriendlyByteBuf buf) {
         this.clientColonyName = buf.readUtf();
         this.clientCreateTarget = buf.readUtf();
+        this.clientPlayerStockTarget = buf.readInt();
     }
 
     @Override

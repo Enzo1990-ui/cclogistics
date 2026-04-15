@@ -1,13 +1,11 @@
 package com.ogtenzohd.cclogistics.colony.buildings.gui;
 
-import com.ldtteam.blockui.controls.Button;
 import com.ldtteam.blockui.controls.TextField;
 import com.minecolonies.core.client.gui.AbstractModuleWindow;
+import com.mojang.logging.LogUtils;
 import com.ogtenzohd.cclogistics.colony.buildings.moduleviews.LogisticsModuleView;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import org.slf4j.Logger;
-import com.mojang.logging.LogUtils;
 
 public class LogisticsWindow extends AbstractModuleWindow<LogisticsModuleView> {
 
@@ -24,12 +22,28 @@ public class LogisticsWindow extends AbstractModuleWindow<LogisticsModuleView> {
         if (cityInput != null) {
             cityInput.setText(moduleView.getCreateTarget());
         }
+        TextField stockInput = window.findPaneOfTypeByID("stockTargetInput", TextField.class);
+        if (stockInput != null) {
+            stockInput.setText(String.valueOf(moduleView.getPlayerStockTarget()));
+        }
+
         registerButton("saveBtn", btn -> {
             String newName = colonyInput != null ? colonyInput.getText() : "";
             String newTarget = cityInput != null ? cityInput.getText() : "";
+
+            int newStockTarget = 128;
+            if (stockInput != null && !stockInput.getText().isEmpty()) {
+                try {
+                    newStockTarget = Integer.parseInt(stockInput.getText().trim());
+                    if (newStockTarget < 1) newStockTarget = 1;
+                } catch (NumberFormatException e) {
+                    LOGGER.warn("[LogisticsWindow] Invalid stock target entered by player. Defaulting to 128 to prevent crash.");
+                }
+            }
+
             LOGGER.info("[LogisticsWindow] Saving Data...");
-            LOGGER.info("   -> Colony: " + newName + ", City: " + newTarget);
-            moduleView.updateData(newName, newTarget);
+            LOGGER.info("   -> Colony: " + newName + ", City: " + newTarget + ", Stock Target: " + newStockTarget);
+            moduleView.updateData(newName, newTarget, newStockTarget);
         });
     }
 }

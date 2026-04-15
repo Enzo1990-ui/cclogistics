@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " E ",
+    " P ",
+    " F "
+  ],
+  "key": {
+    "E": {
+      "item": "create:electron_tube"
+    },
+    "P": {
+      "item": "structurize:sceptergold"
+    },
+    "F": {
+      "item": "create:brass_funnel"
+    }
+  },
+  "result": {
+    "id": "cclogistics:logistics_funnel",
+    "count": 1
+  }
+}

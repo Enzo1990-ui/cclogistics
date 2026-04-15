@@ -4,8 +4,12 @@
     "icon": {
       "id": "cclogistics:logistics_linker"
     },
-    "title": "The WiFi is Broke",
-    "description": "Craft a Logistics Linker to manually pair your factory to your colony.",
+    "title": {
+      "translate": "advancement.cclogistics.wifi_broke.title"
+    },
+    "description": {
+      "translate": "advancement.cclogistics.wifi_broke.desc"
+    },
     "frame": "task",
     "show_toast": true,
     "announce_to_chat": true,

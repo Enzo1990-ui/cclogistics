@@ -44,9 +44,12 @@
   "block.cclogistics.illuminated_white_path": "Illuminated White Path",
   "block.cclogistics.illuminated_black_path": "Illuminated Black Path",
   "block.cclogistics.illuminated_mossy_path": "Illuminated Mossy Path",
+  "block.cclogistics.logistics_funnel": "Logistics Funnel",
+  "block.cclogistics.freight_scanner": "Freight Scanner",
 
   "item.cclogistics.logistics_linker": "Logistics Linker",
   "item.cclogistics.edible_ballast": "Suspicious Ballast",
+  "item.cclogistics.portable_tracker": "Portable Tracker",
 
   "com.cclogistics.building.freight_depot": "Freight Depot",
   "com.cclogistics.building.foremens_hut": "Foremen's Hut",
@@ -61,5 +64,43 @@
 
   "cclogistics:logistics_coordinator.skills.desc": "Benefits from high Knowledge and Agility to process requests faster.",
   "cclogistics:packer_agent.skills.desc": "Benefits from high Stamina and Agility to move packages quickly.",
-  "cclogistics:freight_inspector.skills.desc": "Benefits from high Intelligence and Knowledge to accurately inspect manifests."
+  "cclogistics:freight_inspector.skills.desc": "Benefits from high Intelligence and Knowledge to accurately inspect manifests.",
+
+  "cclogistics.display_source.freight_manifest": "Freight Depot requests",
+
+  "advancement.cclogistics.eat_ballast.title": "A Crunchy Snack",
+  "advancement.cclogistics.eat_ballast.desc": "You actually ate the train track ballast. Why? Did Amrris tell you to do it?",
+
+  "advancement.cclogistics.efficiency_best.title": "Efficiency at its Best",
+  "advancement.cclogistics.efficiency_best.desc": "Build a Freight Depot and prepare to automate your supply lines.",
+
+  "advancement.cclogistics.gotta_go_fast.title": "Gotta Go Fast!",
+  "advancement.cclogistics.gotta_go_fast.desc": "Craft a Logistics Path and enjoy the speed.",
+
+  "advancement.cclogistics.hello_darkness_my_old_friend.title": "Hello Darkness My Old Friend",
+  "advancement.cclogistics.hello_darkness_my_old_friend.desc": "Craft an Illuminated Logistics Path and enjoy the speed and the light.",
+
+  "advancement.cclogistics.ive_got_the_need_for_speed.title": "I've Got The Need For Speed!",
+  "advancement.cclogistics.ive_got_the_need_for_speed.desc": "Collect all the paths.",
+
+  "advancement.cclogistics.laying_groundwork.title": "Laying the Groundwork",
+  "advancement.cclogistics.laying_groundwork.desc": "Craft Railway Ballast to decorate your new train depot.",
+
+  "advancement.cclogistics.mind_the_gap.title": "Mind the Gap!",
+  "advancement.cclogistics.mind_the_gap.desc": "Obtain a Track Clearance block to protect your citizens from high-speed trains.",
+
+  "advancement.cclogistics.paper_pusher.title": "Paper Pusher",
+  "advancement.cclogistics.paper_pusher.desc": "Set up a Foremen's Hut to track your live shipping manifests.",
+
+  "advancement.cclogistics.rainbow_track.title": "Rainbow Track",
+  "advancement.cclogistics.rainbow_track.desc": "Collect all 14 colors of Railway Ballast.",
+
+  "advancement.cclogistics.root.title": "Create: Colony Logistics",
+  "advancement.cclogistics.root.desc": "Bridge the gap between your automated factories and your growing town.",
+
+  "advancement.cclogistics.same_day_shipping.title": "Same-Day Shipping",
+  "advancement.cclogistics.same_day_shipping.desc": "Obtain a Logistics Controller to enable Express Package routing.",
+
+  "advancement.cclogistics.wifi_broke.title": "The WiFi is Broke",
+  "advancement.cclogistics.wifi_broke.desc": "Craft a Logistics Linker to manually pair your factory to your colony."
 }

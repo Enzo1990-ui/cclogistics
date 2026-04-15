@@ -182,7 +182,6 @@ public class LogisticsRequestHelper {
                 if (amountNeeded > maxPackageCapacity) amountNeeded = maxPackageCapacity;
 
                 if (sentRequestIds != null && sentRequestIds.contains(id)) {
-                    if (trackerUpdater != null) trackerUpdater.track(id, itemToSend.getHoverName().getString(), amountNeeded, FreightTrackerModule.TrackStatus.ACCEPTED, "Dispatched");
                     continue;
                 }
 

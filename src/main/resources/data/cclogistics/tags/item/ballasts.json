@@ -1,0 +1,19 @@
+{
+  "replace": false,
+  "values": [
+    "cclogistics:white_ballast",
+    "cclogistics:blue_gray_ballast",
+    "cclogistics:sandy_ballast",
+    "cclogistics:prisma_ballast",
+    "cclogistics:pink_gray_ballast",
+    "cclogistics:gray_ballast",
+    "cclogistics:light_gray_ballast",
+    "cclogistics:dark_gray_ballast",
+    "cclogistics:purpur_ballast",
+    "cclogistics:brown_gray_ballast",
+    "cclogistics:green_gray_ballast",
+    "cclogistics:red_ballast",
+    "cclogistics:black_ballast",
+    "cclogistics:nether_ballast"
+  ]
+}

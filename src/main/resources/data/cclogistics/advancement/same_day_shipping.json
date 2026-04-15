@@ -4,8 +4,12 @@
     "icon": {
       "id": "cclogistics:logistics_controller"
     },
-    "title": "Same-Day Shipping",
-    "description": "Obtain a Logistics Controller to enable Express Package routing.",
+    "title": {
+      "translate": "advancement.cclogistics.same_day_shipping.title"
+    },
+    "description": {
+      "translate": "advancement.cclogistics.same_day_shipping.desc"
+    },
     "frame": "task",
     "show_toast": true,
     "announce_to_chat": true

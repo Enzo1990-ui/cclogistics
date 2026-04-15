@@ -1,0 +1,19 @@
+{
+  "replace": false,
+  "values": [
+    "cclogistics:white_ballast_slab",
+    "cclogistics:blue_gray_ballast_slab",
+    "cclogistics:sandy_ballast_slab",
+    "cclogistics:prisma_ballast_slab",
+    "cclogistics:pink_gray_ballast_slab",
+    "cclogistics:gray_ballast_slab",
+    "cclogistics:light_gray_ballast_slab",
+    "cclogistics:dark_gray_ballast_slab",
+    "cclogistics:purpur_ballast_slab",
+    "cclogistics:brown_gray_ballast_slab",
+    "cclogistics:green_gray_ballast_slab",
+    "cclogistics:red_ballast_slab",
+    "cclogistics:black_ballast_slab",
+    "cclogistics:nether_ballast_slab"
+  ]
+}

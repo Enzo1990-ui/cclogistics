@@ -4,8 +4,12 @@
     "icon": {
       "id": "cclogistics:freight_depot"
     },
-    "title": "Efficiency at its Best",
-    "description": "Build a Freight Depot and prepare to automate your supply lines.",
+    "title": {
+      "translate": "advancement.cclogistics.efficiency_best.title"
+    },
+    "description": {
+      "translate": "advancement.cclogistics.efficiency_best.desc"
+    },
     "frame": "goal",
     "show_toast": true,
     "announce_to_chat": true
