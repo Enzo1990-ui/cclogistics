@@ -17,7 +17,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-// EXTENDS BOWindow directly so it doesn't pull in the building tabs!
 public class PortableTrackerWindow extends BOWindow {
 
     private final ScrollingList requestList;
@@ -105,8 +104,7 @@ public class PortableTrackerWindow extends BOWindow {
 
                 if (itemText != null && statusText != null) {
                     String rawName = (req.itemName != null && !req.itemName.isEmpty()) ? req.itemName : "Loading...";
-                    String shortItemName = rawName.length() > 20 ? rawName.substring(0, 17) + "..." : rawName;
-                    itemText.setText(Component.literal(req.amount + "x " + shortItemName).withStyle(net.minecraft.ChatFormatting.BLACK));
+                    itemText.setText(Component.literal(req.amount + "x " + rawName).withStyle(net.minecraft.ChatFormatting.BLACK));
 
                     String symbol = "• ";
                     String statusStr = req.status.display;

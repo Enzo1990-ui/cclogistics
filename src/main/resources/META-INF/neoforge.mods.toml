@@ -5,7 +5,7 @@ issueTrackerURL="https://github.com/Enzo1990-ui/cclogistics/issues"
 
 [[mods]]
 modId="cclogistics"
-version="1.2.3"
+version="1.2.4"
 displayName="Create Colony Logistics"
 logoFile="logo.png"
 authors="OGTEnzoHD"
@@ -26,7 +26,7 @@ config="cclogistics.mixins.json"
 [[dependencies.cclogistics]]
     modId="minecolonies"
     type="required"
-    versionRange="[1.1.1273,)"
+    versionRange="[1.1.1300,)"
     ordering="NONE"
     side="BOTH"
 

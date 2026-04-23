@@ -4,21 +4,17 @@ import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.buildings.IBuilding;
 import com.minecolonies.api.colony.requestsystem.manager.IRequestManager;
 import com.minecolonies.api.colony.requestsystem.request.IRequest;
+import com.minecolonies.api.colony.requestsystem.requestable.IDeliverable;
 import com.minecolonies.core.colony.requestsystem.management.IStandardRequestManager;
 import com.mojang.logging.LogUtils;
 import com.ogtenzohd.cclogistics.colony.buildings.modules.ExpressModule;
 import com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule;
+import com.ogtenzohd.cclogistics.config.CCLConfig;
 import com.simibubi.create.content.logistics.BigItemStack;
 import com.simibubi.create.content.logistics.stockTicker.StockTickerBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;
 import org.slf4j.Logger;
-
-import com.minecolonies.api.colony.requestsystem.requestable.Tool;
-import com.minecolonies.api.colony.requestsystem.requestable.Stack;
-import com.minecolonies.api.colony.requestsystem.requestable.Food;
-import com.minecolonies.api.colony.requestsystem.requestable.Burnable;
-import com.minecolonies.api.colony.requestsystem.requestable.StackList;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -35,7 +31,7 @@ public class LogisticsRequestHelper {
 
     @FunctionalInterface
     public interface OrderCacher {
-        void cacheOrder(ItemStack item, int amount, String targetAddress);
+        void cacheOrder(ItemStack item, int amount, String targetAddress, String requestId);
     }
 
     public static void processRequests(
@@ -50,9 +46,10 @@ public class LogisticsRequestHelper {
             OrderCacher orderCacher
     ) {
         if (colony == null || ticker == null) return;
-        boolean FORCE_TRACE = false;
 
-        if (FORCE_TRACE) LOGGER.info("[CCL-TRACE] === Starting Request Processing Cycle ===");
+        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE)) {
+            LOGGER.info("[CCL-TRACE] === Starting Request Processing Cycle ===");
+        }
 
         Map<String, IRequest<?>> liveRequests = new HashMap<>();
         IRequestManager manager = colony.getRequestManager();
@@ -77,11 +74,6 @@ public class LogisticsRequestHelper {
             IRequest<?> req = entry.getValue();
             if (req == null) return true;
 
-            String reqType = req.getClass().getSimpleName();
-            if (reqType.contains("DeliveryRequest") || reqType.contains("PickupRequest") ||
-                    reqType.contains("RestockRequest") || reqType.contains("DropoffRequest")) {
-                return true;
-            }
             String reqClass = req.getRequester().getClass().getSimpleName().toLowerCase();
             if (reqClass.contains("warehouse") || reqClass.contains("logisticscoordinator")) {
                 return true;
@@ -112,7 +104,6 @@ public class LogisticsRequestHelper {
                 String targetAddress = addressResolver.apply(req);
                 if (targetAddress == null) continue;
                 if (req.canBeDelivered()) continue;
-
                 try {
                     BlockPos requesterPos = req.getRequester().getLocation().getInDimensionLocation();
 
@@ -129,7 +120,9 @@ public class LogisticsRequestHelper {
                             String checkString = requesterBuilding.getBuildingDisplayName() + ";" + requesterBuilding.getID();
                             if (expressModule.isExpressEnabled(checkString)) {
                                 targetAddress = targetAddress + "-express;" + requesterPos.getX() + "," + requesterPos.getY() + "," + requesterPos.getZ();
-                                if (FORCE_TRACE) LOGGER.info("[CCL-TRACE] Request upgraded to EXPRESS for {}!", requesterBuilding.getBuildingDisplayName());
+                                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.BRIDGE)) {
+                                    LOGGER.info("[CCL-TRACE] Request upgraded to EXPRESS for {}!", requesterBuilding.getBuildingDisplayName());
+                                }
                             }
                         }
                     }
@@ -138,15 +131,14 @@ public class LogisticsRequestHelper {
                 }
 
                 String type = req.getClass().getSimpleName();
-
                 if (type.contains("DeliveryRequest")) {
                     ItemStack deliveryItem = ItemStack.EMPTY;
                     int delAmount = 1;
 
                     Object inner = req.getRequest();
-                    if (inner instanceof Stack stackReq) {
-                        deliveryItem = stackReq.getStack();
-                        delAmount = stackReq.getCount();
+                    if (inner instanceof IDeliverable deliverableReq) {
+                        deliveryItem = deliverableReq.getResult();
+                        delAmount = deliverableReq.getCount();
                     }
 
                     if (trackerUpdater != null) trackerUpdater.track(id, !deliveryItem.isEmpty() ? deliveryItem.getHoverName().getString() : "Transit Package", delAmount, FreightTrackerModule.TrackStatus.DELIVERING, null);
@@ -154,29 +146,69 @@ public class LogisticsRequestHelper {
                 }
 
                 Object innerReq = req.getRequest();
-                if (innerReq == null) continue;
-
-                ItemStack itemToSend = ItemStack.EMPTY;
-                int amountNeeded = 1;
-
-                if (innerReq instanceof Tool toolReq) {
-                    itemToSend = findToolInNetwork(toolReq, networkInv);
-                } else if (innerReq instanceof Stack stackReq) {
-                    itemToSend = stackReq.getStack().copy();
-                    amountNeeded = stackReq.getCount();
-                } else if (innerReq instanceof Food) {
-                    itemToSend = findFoodInNetwork(networkInv);
-                } else if (innerReq instanceof StackList stackListReq) {
-                    if (!stackListReq.getStacks().isEmpty()) {
-                        ItemStack firstValid = stackListReq.getStacks().get(0);
-                        itemToSend = firstValid.copy();
-                        amountNeeded = firstValid.getCount();
-                    }
-                } else if (innerReq instanceof Burnable) {
+                if (!(innerReq instanceof IDeliverable deliverable)) {
+                    continue;
                 }
 
+                int amountNeeded = deliverable.getCount();
                 if (amountNeeded <= 0) amountNeeded = 1;
-                if (itemToSend.isEmpty() || canColonyCraft(itemToSend)) continue;
+                ItemStack itemToSend = ItemStack.EMPTY;
+                for (BigItemStack bis : networkInv) {
+                    if (bis.stack.isEmpty()) continue;
+
+                    if (deliverable.matches(bis.stack)) {
+                        itemToSend = bis.stack.copy();
+                        itemToSend.setCount(1);
+                        break;
+                    }
+                }
+
+                if (itemToSend.isEmpty()) {
+                    String missingName = "Requested Item";
+                    if (deliverable instanceof com.minecolonies.api.colony.requestsystem.requestable.Stack stackReq) {
+                        if (!stackReq.getStack().isEmpty()) {
+                            missingName = stackReq.getStack().getHoverName().getString();
+                        }
+                    }
+                    else if (deliverable instanceof com.minecolonies.api.colony.requestsystem.requestable.RequestTag tagReq) {
+                        String tagPath = tagReq.getTag().location().getPath();
+
+                        String formattedName = java.util.Arrays.stream(tagPath.split("_"))
+                                .map(word -> word.isEmpty() ? word : word.substring(0, 1).toUpperCase() + word.substring(1))
+                                .collect(java.util.stream.Collectors.joining(" "));
+
+                        missingName = "Any " + formattedName;
+                    }
+                    else if (deliverable instanceof com.minecolonies.api.colony.requestsystem.requestable.StackList stackList) {
+                        if (!stackList.getStacks().isEmpty()) {
+                            missingName = stackList.getStacks().get(0).getHoverName().getString();
+                        } else if (stackList.getDescription() != null && !stackList.getDescription().isEmpty()) {
+                            missingName = stackList.getDescription();
+                        }
+                    }
+                    else if (deliverable instanceof com.minecolonies.api.colony.requestsystem.requestable.Tool) {
+                        missingName = "Requested Tool";
+                    }
+                    else if (deliverable instanceof com.minecolonies.api.colony.requestsystem.requestable.Food) {
+                        missingName = "Food / Edibles";
+                    }
+                    else if (!deliverable.getResult().isEmpty()) {
+                        missingName = deliverable.getResult().getHoverName().getString();
+                    }
+
+                    if (trackerUpdater != null) {
+                        trackerUpdater.track(id, missingName, amountNeeded, FreightTrackerModule.TrackStatus.NO_STOCK, null);
+                    }
+                    continue;
+                }
+
+                if (canColonyCraft(itemToSend) && deliverable.canBeResolvedByBuilding()) continue;
+                int exactStockAvailable = 0;
+                for (BigItemStack bis : networkInv) {
+                    if (!bis.stack.isEmpty() && ItemStack.isSameItemSameComponents(bis.stack, itemToSend)) {
+                        exactStockAvailable += bis.count;
+                    }
+                }
 
                 int maxPackageCapacity = itemToSend.getMaxStackSize() * 9;
                 if (amountNeeded > maxPackageCapacity) amountNeeded = maxPackageCapacity;
@@ -185,36 +217,16 @@ public class LogisticsRequestHelper {
                     continue;
                 }
 
-                int exactStockAvailable = 0;
-                for (BigItemStack bis : networkInv) {
-                    if (bis.stack.isEmpty()) continue;
-                    if (ItemStack.isSameItemSameComponents(bis.stack, itemToSend)) {
-                        exactStockAvailable += bis.count;
-                    }
-                    else if (bis.stack.getItem() == itemToSend.getItem() &&
-                            bis.stack.getHoverName().getString().equals(itemToSend.getHoverName().getString()) &&
-                            !itemToSend.getItem().toString().contains("domum_ornamentum")) {
-                        exactStockAvailable += bis.count;
-                    }
-                }
-
                 if (exactStockAvailable >= amountNeeded) {
                     int remainingNeeded = amountNeeded;
                     for (BigItemStack bis : networkInv) {
                         if (bis.stack.isEmpty() || remainingNeeded <= 0 || bis.count <= 0) continue;
 
-                        boolean matches = false;
-                        if (ItemStack.isSameItemSameComponents(bis.stack, itemToSend)) matches = true;
-                        else if (bis.stack.getItem() == itemToSend.getItem() &&
-                                bis.stack.getHoverName().getString().equals(itemToSend.getHoverName().getString()) &&
-                                !itemToSend.getItem().toString().contains("domum_ornamentum")) {
-                            matches = true;
-                        }
-
-                        if (matches) {
+                        if (ItemStack.isSameItemSameComponents(bis.stack, itemToSend)) {
                             int toTake = Math.min(remainingNeeded, bis.count);
+
                             if (orderCacher != null) {
-                                orderCacher.cacheOrder(bis.stack.copy(), toTake, targetAddress);
+                                orderCacher.cacheOrder(bis.stack.copy(), toTake, targetAddress, id);
                             } else {
                                 boolean success = LogisticsBridge.sendPackage(ticker, bis.stack.copy(), toTake, targetAddress, null);
                                 if (success) {
@@ -226,19 +238,21 @@ public class LogisticsRequestHelper {
                             remainingNeeded -= toTake;
                         }
                     }
+
                     if (sentRequestIds != null) sentRequestIds.add(id);
                     if (orderCacher != null) {
-                        if (trackerUpdater != null) trackerUpdater.track(id, itemToSend.getHoverName().getString(), amountNeeded, FreightTrackerModule.TrackStatus.ACCEPTED, "Pending Coordinator");
+                        if (trackerUpdater != null) trackerUpdater.track(id, itemToSend.getHoverName().getString(), amountNeeded, FreightTrackerModule.TrackStatus.ACCEPTED, "Awaiting Coordinator");
                     } else {
-                        if (trackerUpdater != null) trackerUpdater.track(id, itemToSend.getHoverName().getString(), amountNeeded, FreightTrackerModule.TrackStatus.ACCEPTED, "Dispatched");
+                        if (trackerUpdater != null) trackerUpdater.track(id, itemToSend.getHoverName().getString(), amountNeeded, FreightTrackerModule.TrackStatus.ACCEPTED, "Requested");
                     }
 
                 } else {
                     String msg = (exactStockAvailable == 0) ? "No Stock" : (amountNeeded - exactStockAvailable) + " Missing";
                     if (trackerUpdater != null) trackerUpdater.track(id, itemToSend.getHoverName().getString(), amountNeeded, FreightTrackerModule.TrackStatus.NO_STOCK, msg);
                 }
+
             } catch (Exception e) {
-                LOGGER.error("Failed to process request ID: " + id, e);
+                LOGGER.error("Failed to process request ID: {}", id, e);
             }
         }
     }
@@ -261,28 +275,5 @@ public class LogisticsRequestHelper {
         } catch (Exception ignored) {
         }
         return false;
-    }
-
-    private static ItemStack findToolInNetwork(Tool toolReq, List<BigItemStack> networkInv) {
-        List<ItemStack> candidates = new ArrayList<>();
-        for (BigItemStack bis : networkInv) {
-            ItemStack stack = bis.stack;
-            if (stack.isEmpty()) continue;
-            if (toolReq.matches(stack)) {
-                candidates.add(stack);
-            }
-        }
-        if (candidates.isEmpty()) return ItemStack.EMPTY;
-        candidates.sort((a, b) -> Integer.compare(b.getMaxDamage(), a.getMaxDamage()));
-        return candidates.get(0).copyWithCount(1);
-    }
-
-    private static ItemStack findFoodInNetwork(List<BigItemStack> networkInv) {
-        for (BigItemStack bis : networkInv) {
-            if (!bis.stack.isEmpty() && bis.stack.has(net.minecraft.core.component.DataComponents.FOOD)) {
-                return bis.stack.copyWithCount(1);
-            }
-        }
-        return ItemStack.EMPTY;
     }
 }

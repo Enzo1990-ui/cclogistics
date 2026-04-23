@@ -1,0 +1,34 @@
+{
+  "branch": "cclogistics:cclogistics",
+  "costs": [
+    {
+      "count": 64,
+      "item": "minecraft:paper"
+    },
+	{
+      "count": 32,
+      "item": "minecraft:glass_pane"
+    },
+    {
+      "count": 16,
+      "item": "create:precision_mechanism"
+    }
+  ],
+  "icon": "cclogistics:portable_tracker",
+  "requirements": [
+    {
+      "type": "minecolonies:building",
+      "building": "cclogistics:freight_depot",
+      "level": 3
+    }
+  ],
+  "effects": [
+    {
+      "id": "cclogistics:effects/stock_tablets",
+      "level": 1
+    }
+  ],
+  "researchLevel": 1,
+  "sortOrder": 1,
+  "subtitle": "research.cclogistics.stock_tablets.subtitle"
+}

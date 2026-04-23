@@ -39,25 +39,17 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
 
     private enum State {
         IDLE,
-        // Unpack Import
         TO_DEPOT_IMPORT, AT_DEPOT_IMPORT, TO_WAREHOUSE, AT_WAREHOUSE,
-        // Pack Export
         TO_DEPOT_EXCESS, AT_DEPOT_EXCESS, TO_DEPOT_EXPORT, AT_DEPOT_EXPORT,
-        // Train Unload
         TO_TRAIN_UNLOAD, AT_TRAIN_UNLOAD, TO_DEPOT_DROP, AT_DEPOT_DROP,
-        // Train Load
         TO_DEPOT_PICKUP, AT_DEPOT_PICKUP, TO_TRAIN_LOAD, AT_TRAIN_LOAD,
-        // Express Delivery
         TO_EXPRESS_DELIVERY, AT_EXPRESS_DELIVERY,
-        // April Fools
         APRIL_FOOLS_RUNAWAY
     }
 
     private State state = State.IDLE;
     private int delay = 0;
     private BlockPos currentTarget = null;
-
-    private List<ItemStack> holdingItems = new ArrayList<>();
 
     private net.minecraft.core.BlockPos prankTarget = null;
     private int prankTickTimer = 0;
@@ -84,6 +76,32 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
     private int getSkillLevel(Skill skill) {
         if (job.getCitizen() == null || job.getCitizen().getCitizenSkillHandler() == null) return 1;
         return job.getCitizen().getCitizenSkillHandler().getLevel(skill);
+    }
+
+    private boolean isSafeToDump(ItemStack stack) {
+        if (stack.isEmpty()) return false;
+        if (isPackage(stack)) return true;
+        if (stack.has(net.minecraft.core.component.DataComponents.FOOD)) return false;
+        return !(stack.getItem() instanceof net.minecraft.world.item.TieredItem) &&
+                !(stack.getItem() instanceof net.minecraft.world.item.ArmorItem) &&
+                !(stack.getItem() instanceof net.minecraft.world.item.ShieldItem);
+    }
+
+    private boolean hasWorkItemsInInventory() {
+        getInventory();
+        for (int i = 0; i < getInventory().getSlots(); i++) {
+            if (isSafeToDump(getInventory().getStackInSlot(i))) return true;
+        }
+        return false;
+    }
+
+    private ItemStack getFirstWorkItem() {
+        getInventory();
+        for (int i = 0; i < getInventory().getSlots(); i++) {
+            ItemStack stack = getInventory().getStackInSlot(i);
+            if (isSafeToDump(stack)) return stack;
+        }
+        return ItemStack.EMPTY;
     }
 
     private void updateTracker(String itemName, int amount, FreightTrackerModule.TrackStatus status) {
@@ -119,7 +137,6 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                         } else {
                             module.updateRequest(entry.getKey(), req.itemName, req.amount, status, req.override, req.isIncoming);
                         }
-
                     }
                 }
             }
@@ -127,17 +144,13 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
     }
 
     private boolean checkHolidayEvents() {
-        if (HolidayManager.IS_APRIL_FOOLS) {
-            return handleAprilFoolsPrank();
-        }
-
+        if (HolidayManager.IS_APRIL_FOOLS) return handleAprilFoolsPrank();
         return false;
     }
 
     private boolean handleAprilFoolsPrank() {
         if (job.getColony().getWorld().random.nextFloat() < 0.30f) {
             job.getCitizen().getEntity().ifPresent(entity -> {
-
                 double ang = entity.getRandom().nextDouble() * Math.PI * 2;
                 double dist = 6 + entity.getRandom().nextDouble() * 4;
                 int tx = (int)(entity.getX() + Math.cos(ang) * dist);
@@ -145,14 +158,12 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                 int ty = entity.level().getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, tx, tz);
 
                 this.prankTarget = new net.minecraft.core.BlockPos(tx, ty, tz);
-
                 this.prankTickTimer = 0;
                 this.prankBoxesDropped = 0;
                 this.droppedPrankBoxes.clear();
 
                 entity.level().playSound(null, entity.blockPosition(), net.minecraft.sounds.SoundEvents.MULE_CHEST, net.minecraft.sounds.SoundSource.NEUTRAL, 1.0f, 1.5f);
             });
-
             state = State.APRIL_FOOLS_RUNAWAY;
             delay = 0;
             return true;
@@ -165,14 +176,11 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
             net.minecraft.world.level.Level level = entity.level();
             prankTickTimer++;
 
-            if (prankTarget != null) {
-                moveTo(prankTarget);
-            }
+            if (prankTarget != null) moveTo(prankTarget);
 
             if (prankTickTimer % 10 == 0 && prankBoxesDropped < 3) {
                 if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
                     net.minecraft.world.entity.EntityType<?> packageType = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.get(net.minecraft.resources.ResourceLocation.parse("create:package"));
-
                     if (packageType != null) {
                         net.minecraft.world.entity.Entity customPackage = packageType.create(serverLevel);
                         if (customPackage != null) {
@@ -200,7 +208,6 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
 
             if (prankTickTimer > 50) {
                 if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
-
                     for (net.minecraft.world.entity.Entity box : droppedPrankBoxes) {
                         if (box.isRemoved()) continue;
 
@@ -236,7 +243,7 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
             }
         }
 
-        if (activeRole != job.getRole() && holdingItems.isEmpty()) {
+        if (activeRole != job.getRole() && !hasWorkItemsInInventory()) {
             if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) {
                 LOGGER.info("[PackerAI-ENHANCED] Hands are empty! Seamlessly switching from " + activeRole + " to new role: " + job.getRole());
             }
@@ -246,16 +253,16 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
             this.delay = 10;
         }
 
-        if (!holdingItems.isEmpty()) {
+        if (hasWorkItemsInInventory()) {
             job.getCitizen().getEntity().ifPresent(entity -> {
                 if (entity.getItemInHand(InteractionHand.MAIN_HAND).isEmpty()) {
-                    entity.setItemInHand(InteractionHand.MAIN_HAND, holdingItems.getFirst().copy());
+                    entity.setItemInHand(InteractionHand.MAIN_HAND, getFirstWorkItem().copy());
                 }
             });
         } else {
             job.getCitizen().getEntity().ifPresent(entity -> {
                 ItemStack handItem = entity.getItemInHand(InteractionHand.MAIN_HAND);
-                if (!handItem.isEmpty() && isPackage(handItem)) {
+                if (!handItem.isEmpty() && isSafeToDump(handItem)) {
                     clearHand();
                 }
             });
@@ -286,9 +293,6 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
         }
     }
 
-    // =======================
-    // ROLE: UNPACKING IMPORTS
-    // =======================
     private void tickUnpackImport() {
         switch (state) {
             case IDLE:
@@ -309,7 +313,7 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
 
             case AT_DEPOT_IMPORT:
                 if (checkHolidayEvents()) return;
-                if (!holdingItems.isEmpty()) {
+                if (hasWorkItemsInInventory()) {
                     state = State.TO_WAREHOUSE;
                     return;
                 }
@@ -329,10 +333,14 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                                     if (isPackage(check)) {
                                         if (!rawItemsToPack.isEmpty()) break;
                                         ItemStack extracted = importInv.extractItem(i, 64, false);
-                                        holdingItems.add(extracted);
-
+                                        ItemHandlerHelper.insertItemStacked(getInventory(), extracted, false);
+                                        String trackingId = getTrackingId(extracted);
                                         for (ItemStack content : unpack(extracted)) {
-                                            updateTrackerByName(content.getHoverName().getString(), FreightTrackerModule.TrackStatus.IN_TRANSIT);
+                                            if (trackingId != null) {
+                                                updateTrackerById(trackingId, FreightTrackerModule.TrackStatus.IN_TRANSIT);
+                                            } else {
+                                                updateTrackerByName(content.getHoverName().getString(), FreightTrackerModule.TrackStatus.IN_TRANSIT);
+                                            }
                                         }
                                         state = State.TO_WAREHOUSE;
                                         return;
@@ -342,7 +350,14 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                                 }
                             }
                             if (!rawItemsToPack.isEmpty()) {
-                                holdingItems.add(pack(rawItemsToPack, ""));
+                                ItemStack packed = pack(rawItemsToPack, "");
+                                if (!packed.isEmpty()) {
+                                    ItemHandlerHelper.insertItemStacked(getInventory(), packed, false);
+                                } else {
+                                    for (ItemStack rawItem : rawItemsToPack) {
+                                        ItemHandlerHelper.insertItemStacked(getInventory(), rawItem, false);
+                                    }
+                                }
                                 for (ItemStack rawItem : rawItemsToPack) {
                                     updateTrackerByName(rawItem.getHoverName().getString(), FreightTrackerModule.TrackStatus.IN_TRANSIT);
                                 }
@@ -377,31 +392,44 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                 break;
 
             case AT_WAREHOUSE:
-                if (!holdingItems.isEmpty() && currentTarget != null) {
+                if (hasWorkItemsInInventory() && currentTarget != null) {
                     BlockEntity be = job.getColony().getWorld().getBlockEntity(currentTarget);
                     if (be != null) {
                         IItemHandler handler = be.getLevel().getCapability(Capabilities.ItemHandler.BLOCK, be.getBlockPos(), be.getBlockState(), be, null);
                         if (handler != null) {
-                            List<ItemStack> remainingList = new ArrayList<>();
-                            for (ItemStack stack : holdingItems) {
+                            List<ItemStack> toProcess = new ArrayList<>();
+                            for (int i = 0; i < getInventory().getSlots(); i++) {
+                                ItemStack stack = getInventory().getStackInSlot(i);
+                                if (isSafeToDump(stack)) {
+                                    toProcess.add(getInventory().extractItem(i, stack.getCount(), false));
+                                }
+                            }
+
+                            for (ItemStack stack : toProcess) {
                                 if (isPackage(stack)) {
+                                    String trackingId = getTrackingId(stack);
                                     for (ItemStack unpackedItem : unpack(stack)) {
                                         ItemStack remaining = ItemHandlerHelper.insertItemStacked(handler, unpackedItem, false);
                                         int amountInserted = unpackedItem.getCount() - remaining.getCount();
-                                        if (amountInserted > 0) updateTracker(unpackedItem.getHoverName().getString(), amountInserted, FreightTrackerModule.TrackStatus.COMPLETED);
-                                        if (!remaining.isEmpty()) remainingList.add(remaining);
+                                        if (amountInserted > 0) {
+                                            if (trackingId != null) {
+                                                updateTrackerById(trackingId, FreightTrackerModule.TrackStatus.COMPLETED);
+                                            } else {
+                                                updateTracker(unpackedItem.getHoverName().getString(), amountInserted, FreightTrackerModule.TrackStatus.COMPLETED);
+                                            }
+                                        }
+                                        if (!remaining.isEmpty()) ItemHandlerHelper.insertItemStacked(getInventory(), remaining, false);
                                     }
                                 } else {
                                     ItemStack remaining = ItemHandlerHelper.insertItemStacked(handler, stack, false);
-                                    if (!remaining.isEmpty()) remainingList.add(remaining);
+                                    if (!remaining.isEmpty()) ItemHandlerHelper.insertItemStacked(getInventory(), remaining, false);
                                 }
                             }
-                            holdingItems = remainingList;
                         }
                     }
                 }
 
-                if (holdingItems.isEmpty()) {
+                if (!hasWorkItemsInInventory()) {
                     clearHand();
                     if (activeRole == PackerAgentJob.PackerRole.GENERAL_DUTY) {
                         state = State.TO_DEPOT_EXCESS;
@@ -416,9 +444,6 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
         }
     }
 
-    // =====================
-    // ROLE: PACKING EXPORTS
-    // =====================
     private void tickPackExport() {
         switch (state) {
             case IDLE:
@@ -439,7 +464,7 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
 
             case AT_DEPOT_EXCESS:
                 if (checkHolidayEvents()) return;
-                if (!holdingItems.isEmpty()) {
+                if (hasWorkItemsInInventory()) {
                     state = State.TO_DEPOT_EXPORT;
                     return;
                 }
@@ -476,7 +501,7 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                                         if (!toPack.isEmpty()) break;
 
                                         ItemStack extracted = inv.extractItem(s, 64, false);
-                                        holdingItems.add(extracted);
+                                        ItemHandlerHelper.insertItemStacked(getInventory(), extracted, false);
                                         job.getCitizen().getEntity().ifPresent(entity -> entity.setItemInHand(InteractionHand.MAIN_HAND, extracted.copy()));
                                         state = State.TO_DEPOT_EXPORT;
                                         return;
@@ -492,12 +517,14 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                                     updateTrackerByName(packedItem.getHoverName().getString(), FreightTrackerModule.TrackStatus.COMPLETED);
                                 }
                                 if (!pkg.isEmpty()) {
-                                    holdingItems.add(pkg);
+                                    ItemHandlerHelper.insertItemStacked(getInventory(), pkg, false);
                                 } else {
-                                    holdingItems.addAll(toPack);
+                                    for (ItemStack toPackItem : toPack) {
+                                        ItemHandlerHelper.insertItemStacked(getInventory(), toPackItem, false);
+                                    }
                                 }
 
-                                job.getCitizen().getEntity().ifPresent(entity -> entity.setItemInHand(InteractionHand.MAIN_HAND, holdingItems.getFirst().copy()));
+                                job.getCitizen().getEntity().ifPresent(entity -> entity.setItemInHand(InteractionHand.MAIN_HAND, getFirstWorkItem().copy()));
                                 state = State.TO_DEPOT_EXPORT;
                                 return;
                             }
@@ -523,22 +550,26 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
             case AT_DEPOT_EXPORT:
                 if (currentTarget != null && job.getColony().getWorld() != null) {
                     BlockEntity be = job.getColony().getWorld().getBlockEntity(currentTarget);
-                    if (be instanceof FreightDepotBlockEntity depotBE && depotBE.getExportInventory() != null && !holdingItems.isEmpty()) {
-                        List<ItemStack> remainingList = new ArrayList<>();
-                        for (ItemStack stack : holdingItems) {
+                    if (be instanceof FreightDepotBlockEntity depotBE && depotBE.getExportInventory() != null && hasWorkItemsInInventory()) {
+                        List<ItemStack> toProcess = new ArrayList<>();
+                        for (int i = 0; i < getInventory().getSlots(); i++) {
+                            ItemStack stack = getInventory().getStackInSlot(i);
+                            if (isSafeToDump(stack)) {
+                                toProcess.add(getInventory().extractItem(i, stack.getCount(), false));
+                            }
+                        }
+
+                        for (ItemStack stack : toProcess) {
                             ItemStack remaining = ItemHandlerHelper.insertItemStacked(depotBE.getExportInventory(), stack, false);
                             int packagesSent = stack.getCount() - remaining.getCount();
                             if (packagesSent > 0) depotBE.addOutgoingLog("OUT;Exported Package x" + packagesSent, 100);
-                            if (!remaining.isEmpty()) remainingList.add(remaining);
+                            if (!remaining.isEmpty()) ItemHandlerHelper.insertItemStacked(getInventory(), remaining, false);
                         }
-                        holdingItems = remainingList;
-                        if (holdingItems.isEmpty()) {
-                            clearHand();
-                        }
+                        if (!hasWorkItemsInInventory()) clearHand();
                     }
                 }
 
-                if (!holdingItems.isEmpty()) {
+                if (hasWorkItemsInInventory()) {
                     delay = 60;
                 } else {
                     if (activeRole == PackerAgentJob.PackerRole.GENERAL_DUTY) {
@@ -551,9 +582,6 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
         }
     }
 
-    // =====================
-    // ROLE: UNLOADING TRAIN
-    // =====================
     private void tickUnloadTrain() {
         switch (state) {
             case IDLE:
@@ -612,7 +640,7 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                         String packageAddress = getPackageAddress(check);
 
                         if (packageAddress != null && packageAddress.equalsIgnoreCase(myColonyName)) {
-                            holdingItems.add(trainInv.extractItem(i, 64, false));
+                            ItemHandlerHelper.insertItemStacked(getInventory(), trainInv.extractItem(i, 64, false), false);
                             foundSomething = true;
                             state = State.TO_DEPOT_DROP;
                             job.getCitizen().getEntity().ifPresent(entity -> {
@@ -632,7 +660,7 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                                         int z = Integer.parseInt(coords[2]);
                                         this.currentTarget = new BlockPos(x, y, z);
 
-                                        holdingItems.add(trainInv.extractItem(i, 64, false));
+                                        ItemHandlerHelper.insertItemStacked(getInventory(), trainInv.extractItem(i, 64, false), false);
                                         foundSomething = true;
                                         state = State.TO_EXPRESS_DELIVERY;
 
@@ -674,23 +702,39 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                     if (be != null) {
                         IItemHandler handler = be.getLevel().getCapability(Capabilities.ItemHandler.BLOCK, be.getBlockPos(), be.getBlockState(), be, null);
                         if (handler != null) {
-                            List<ItemStack> remainingList = new ArrayList<>();
-                            for (ItemStack stack : holdingItems) {
+                            List<ItemStack> toProcess = new ArrayList<>();
+                            for (int i = 0; i < getInventory().getSlots(); i++) {
+                                ItemStack stack = getInventory().getStackInSlot(i);
+                                if (isSafeToDump(stack)) {
+                                    toProcess.add(getInventory().extractItem(i, stack.getCount(), false));
+                                }
+                            }
+
+                            for (ItemStack stack : toProcess) {
                                 if (isPackage(stack)) {
+                                    String trackingId = getTrackingId(stack);
                                     for (ItemStack unpackedItem : unpack(stack)) {
                                         ItemStack remaining = ItemHandlerHelper.insertItemStacked(handler, unpackedItem, false);
                                         int amountInserted = unpackedItem.getCount() - remaining.getCount();
-                                        if (amountInserted > 0) updateTracker(unpackedItem.getHoverName().getString(), amountInserted, FreightTrackerModule.TrackStatus.COMPLETED);
-                                        if (!remaining.isEmpty()) remainingList.add(remaining);
+                                        if (amountInserted > 0) {
+                                            if (trackingId != null) {
+                                                updateTrackerById(trackingId, FreightTrackerModule.TrackStatus.COMPLETED);
+                                            } else {
+                                                updateTracker(unpackedItem.getHoverName().getString(), amountInserted, FreightTrackerModule.TrackStatus.COMPLETED);
+                                            }
+                                        }
+                                        if (!remaining.isEmpty()) ItemHandlerHelper.insertItemStacked(getInventory(), remaining, false);
                                     }
+                                } else {
+                                    ItemStack remaining = ItemHandlerHelper.insertItemStacked(handler, stack, false);
+                                    if (!remaining.isEmpty()) ItemHandlerHelper.insertItemStacked(getInventory(), remaining, false);
                                 }
                             }
-                            holdingItems = remainingList;
                         }
                     }
                 }
 
-                if (holdingItems.isEmpty()) {
+                if (!hasWorkItemsInInventory()) {
                     clearHand();
                     state = State.TO_TRAIN_UNLOAD;
                 } else {
@@ -711,27 +755,31 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                 break;
 
             case AT_DEPOT_DROP:
-                boolean wasActuallyUnloading = !holdingItems.isEmpty();
+                boolean wasActuallyUnloading = hasWorkItemsInInventory();
 
                 if (currentTarget != null && job.getColony().getWorld() != null) {
                     BlockEntity be = job.getColony().getWorld().getBlockEntity(currentTarget);
                     if (be instanceof FreightDepotBlockEntity depotBE && depotBE.getImportInventory() != null) {
-                        List<ItemStack> remainingList = new ArrayList<>();
-                        for (ItemStack stack : holdingItems) {
+                        List<ItemStack> toProcess = new ArrayList<>();
+                        for (int i = 0; i < getInventory().getSlots(); i++) {
+                            ItemStack stack = getInventory().getStackInSlot(i);
+                            if (isSafeToDump(stack)) {
+                                toProcess.add(getInventory().extractItem(i, stack.getCount(), false));
+                            }
+                        }
+
+                        for (ItemStack stack : toProcess) {
                             ItemStack remaining = ItemHandlerHelper.insertItemStacked(depotBE.getImportInventory(), stack, false);
                             int packagesDropped = stack.getCount() - remaining.getCount();
                             if (packagesDropped > 0) depotBE.addIncomingLog("IN;Train Unloaded Box", 100);
-                            if (!remaining.isEmpty()) remainingList.add(remaining);
+                            if (!remaining.isEmpty()) ItemHandlerHelper.insertItemStacked(getInventory(), remaining, false);
                         }
-                        holdingItems = remainingList;
-                        if (holdingItems.isEmpty()) {
-                            clearHand();
-                        }
+                        if (!hasWorkItemsInInventory()) clearHand();
                     }
                 }
 
                 if (wasActuallyUnloading) {
-                    if (holdingItems.isEmpty()) {
+                    if (!hasWorkItemsInInventory()) {
                         state = State.TO_TRAIN_UNLOAD;
                     } else {
                         delay = 60;
@@ -743,9 +791,6 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
         }
     }
 
-    // ===================
-    // ROLE: LOADING TRAIN
-    // ===================
     private void tickLoadTrain() {
         switch (state) {
             case IDLE:
@@ -766,7 +811,7 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
 
             case AT_DEPOT_PICKUP:
                 if (checkHolidayEvents()) return;
-                if (!holdingItems.isEmpty()) {
+                if (hasWorkItemsInInventory()) {
                     state = State.TO_TRAIN_LOAD;
                     return;
                 }
@@ -779,8 +824,7 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                         for (int i = 0; i < exportInv.getSlots(); i++) {
                             ItemStack check = exportInv.extractItem(i, 64, true);
                             if (!check.isEmpty() && isPackage(check)) {
-                                ItemStack extracted = exportInv.extractItem(i, 64, false);
-                                holdingItems.add(extracted);
+                                ItemHandlerHelper.insertItemStacked(getInventory(), exportInv.extractItem(i, 64, false), false);
                                 state = State.TO_TRAIN_LOAD;
                                 return;
                             }
@@ -816,15 +860,19 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                         entity.swing(InteractionHand.MAIN_HAND);
                     });
 
-                    List<ItemStack> remainingList = new ArrayList<>();
-                    for (ItemStack stack : holdingItems) {
+                    List<ItemStack> toProcess = new ArrayList<>();
+                    for (int i = 0; i < getInventory().getSlots(); i++) {
+                        ItemStack stack = getInventory().getStackInSlot(i);
+                        if (isSafeToDump(stack)) {
+                            toProcess.add(getInventory().extractItem(i, stack.getCount(), false));
+                        }
+                    }
+
+                    for (ItemStack stack : toProcess) {
                         ItemStack remaining = ItemHandlerHelper.insertItemStacked(loadTrainInv, stack, false);
-                        if (!remaining.isEmpty()) remainingList.add(remaining);
+                        if (!remaining.isEmpty()) ItemHandlerHelper.insertItemStacked(getInventory(), remaining, false);
                     }
-                    holdingItems = remainingList;
-                    if (holdingItems.isEmpty()) {
-                        clearHand();
-                    }
+                    if (!hasWorkItemsInInventory()) clearHand();
                 }
                 state = State.TO_DEPOT_PICKUP;
                 break;
@@ -839,10 +887,6 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
             }
         }
     }
-
-    // ====================
-    // TRAIN HELPER METHODS
-    // ====================
 
     private CarriageContraptionEntity findParkedTrain() {
         if (job.getColony().getWorld() == null || job.getWorkBuilding() == null) return null;
@@ -870,7 +914,6 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
 
         try {
             var manager = train.getContraption().getStorage();
-
             if (manager != null) {
                 return ((com.ogtenzohd.cclogistics.mixin.ContraptionAccessor) manager).cclogistics$getItems();
             }
@@ -906,7 +949,6 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
         }
 
         net.minecraft.world.level.Level level = job.getColony().getWorld();
-
         AABB dangerZone = trainBox.inflate(1.5, 1.0, 1.5);
         AABB searchZone = trainBox.inflate(3.5, 2.0, 3.5);
 
@@ -944,9 +986,6 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
         return job.getWorkBuilding().getPosition();
     }
 
-    // =================================================================
-    // DATA & UTILS -- Mod compatability, box logic, and colonist memory
-    // =================================================================
     private void clearHand() {
         job.getCitizen().getEntity().ifPresent(entity -> entity.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY));
     }
@@ -993,6 +1032,33 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
             }
         } catch (Exception e) {}
         return "";
+    }
+
+    private String getTrackingId(ItemStack stack) {
+        try {
+            net.minecraft.world.item.component.CustomData customData = stack.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
+            if (customData != null) {
+                CompoundTag nbt = customData.copyTag();
+                if (nbt.contains("cclogistics:tracking_id")) {
+                    return nbt.getString("cclogistics:tracking_id");
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
+    private void updateTrackerById(String id, FreightTrackerModule.TrackStatus status) {
+        if (job.getWorkBuilding() != null) {
+            FreightTrackerModule module = job.getWorkBuilding().getModule(FreightTrackerModule.class);
+            if (module != null && module.getRequests().containsKey(id)) {
+                FreightTrackerModule.TrackedReq req = module.getRequests().get(id);
+                if (status == FreightTrackerModule.TrackStatus.COMPLETED) {
+                    module.removeRequest(id);
+                } else {
+                    module.updateRequest(id, req.itemName, req.amount, status, req.override, req.isIncoming);
+                }
+            }
+        }
     }
 
     private List<ItemStack> unpack(ItemStack stack) {
@@ -1065,9 +1131,6 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
         tag.putInt("State", state.ordinal());
         tag.putInt("Delay", delay);
         if (currentTarget != null) tag.put("Target", NbtUtils.writeBlockPos(currentTarget));
-        ListTag list = new ListTag();
-        for (ItemStack s : holdingItems) list.add(s.save(provider));
-        tag.put("HoldingItems", list);
         if (activeRole != null) tag.putInt("ActiveRole", activeRole.ordinal());
     }
 
@@ -1075,12 +1138,6 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
         if (tag.contains("State")) state = State.values()[tag.getInt("State")];
         if (tag.contains("Delay")) delay = tag.getInt("Delay");
         if (tag.contains("Target")) currentTarget = NbtUtils.readBlockPos(tag, "Target").orElse(null);
-        if (tag.contains("HoldingItems")) {
-            holdingItems.clear();
-            ListTag list = tag.getList("HoldingItems", Tag.TAG_COMPOUND);
-            for (int i = 0; i < list.size(); i++) holdingItems.add(ItemStack.parse(provider, list.getCompound(i)).orElse(ItemStack.EMPTY));
-        }
-
         if (tag.contains("ActiveRole")) activeRole = PackerAgentJob.PackerRole.values()[tag.getInt("ActiveRole")];
     }
 

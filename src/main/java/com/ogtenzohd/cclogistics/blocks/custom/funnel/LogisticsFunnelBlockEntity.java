@@ -37,12 +37,10 @@ public class LogisticsFunnelBlockEntity extends FunnelBlockEntity {
         super.tick();
 
         if (level == null || level.isClientSide) return;
-
-        // Scan the packager every half-second to catch packages right before they drop
         if (level.getGameTime() % 10 != 0) return;
 
         Direction facing = getBlockState().getValue(FunnelBlock.FACING);
-        Direction pullDirection = facing.getOpposite(); // The block behind the funnel
+        Direction pullDirection = facing.getOpposite();
         BlockPos sourcePos = worldPosition.relative(pullDirection);
 
         IItemHandler inventory = level.getCapability(Capabilities.ItemHandler.BLOCK, sourcePos, facing);
@@ -50,28 +48,30 @@ public class LogisticsFunnelBlockEntity extends FunnelBlockEntity {
             for (int i = 0; i < inventory.getSlots(); i++) {
                 ItemStack stack = inventory.getStackInSlot(i);
 
-                if (isPackage(stack) && getTrackingId(stack) == null) {
-                    // 1. Generate a unique 6-character alphanumeric ID
-                    String newId = "PKG-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+                if (isPackage(stack)) {
+                    String trackingId = getTrackingId(stack);
 
-                    // 2. Stamp it onto the package's NBT
-                    CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> {
-                        tag.putString("cclogistics:tracking_id", newId);
-                    });
-
-                    // 3. Extract the real contents to update the database
-                    if (linkedDepot != null && level.getBlockEntity(linkedDepot) instanceof FreightDepotBlockEntity depotBE) {
+                    if (trackingId == null) {
                         String itemName = getPrimaryItemName(stack);
-                        int amount = getPrimaryItemAmount(stack);
+                        String packageAddress = getPackageAddress(stack);
 
-                        // Ping the Depot to log it as Dispatched!
-                        depotBE.updateTracker(
-                                newId,
-                                itemName,
-                                amount,
-                                com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackStatus.ACCEPTED,
-                                "Dispatched"
-                        );
+                        if (linkedDepot != null && level.getBlockEntity(linkedDepot) instanceof FreightDepotBlockEntity depotBE) {
+                            if (packageAddress.equals(depotBE.getColonyName())) {
+                                trackingId = depotBE.getPendingMinecoloniesId(itemName);
+                            }
+                            if (trackingId == null) {
+                                trackingId = "PKG-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+                            }
+                            String finalId = trackingId;
+                            CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> {
+                                tag.putString("cclogistics:tracking_id", finalId);
+                            });
+                            depotBE.updateTracker(trackingId, itemName, getPrimaryItemAmount(stack), com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackStatus.ACCEPTED, "§e[Dispached]");
+                        }
+                    } else {
+                        if (linkedDepot != null && level.getBlockEntity(linkedDepot) instanceof FreightDepotBlockEntity depotBE) {
+                            depotBE.updateTrackerByTrackingId(trackingId, com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackStatus.ACCEPTED, "§e[Dispached]");
+                        }
                     }
                 }
             }
@@ -138,6 +138,20 @@ public class LogisticsFunnelBlockEntity extends FunnelBlockEntity {
             }
         } catch (Exception ignored) {}
         return total > 0 ? total : 1;
+    }
+
+    private String getPackageAddress(ItemStack stack) {
+        try {
+            net.minecraft.core.HolderLookup.Provider registryAccess = level.registryAccess();
+            net.minecraft.nbt.Tag tag = stack.save(registryAccess);
+            if (tag instanceof net.minecraft.nbt.CompoundTag root && root.contains("components")) {
+                net.minecraft.nbt.CompoundTag comps = root.getCompound("components");
+                if (comps.contains("create:package_address")) {
+                    return comps.getString("create:package_address");
+                }
+            }
+        } catch (Exception ignored) {}
+        return "";
     }
 
     @Override

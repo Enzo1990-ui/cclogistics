@@ -17,7 +17,8 @@ public class LogisticsModuleView extends AbstractBuildingModuleView {
 
     private String clientColonyName = "";
     private String clientCreateTarget = "";
-    private int clientPlayerStockTarget = 128; // NEW
+    private int clientPlayerStockTarget = 128;
+    private boolean clientInstantDispatch = false; // NEW
 
     public LogisticsModuleView() {
         super();
@@ -31,17 +32,21 @@ public class LogisticsModuleView extends AbstractBuildingModuleView {
     public String getColonyName() { return clientColonyName; }
     public String getCreateTarget() { return clientCreateTarget; }
     public int getPlayerStockTarget() { return clientPlayerStockTarget; }
-    public void updateData(String name, String target, int stockTarget) {
+    public boolean isInstantDispatch() { return clientInstantDispatch; }
+
+    public void updateData(String name, String target, int stockTarget, boolean instantDispatch) {
         this.clientColonyName = name;
         this.clientCreateTarget = target;
         this.clientPlayerStockTarget = stockTarget;
+        this.clientInstantDispatch = instantDispatch;
 
         if (getBuildingView() != null) {
             CCLPackets.sendToServer(new UpdateLogisticsModulePacket(
                     getBuildingView().getPosition(),
                     name,
                     target,
-                    stockTarget
+                    stockTarget,
+                    instantDispatch
             ));
         }
     }
@@ -56,6 +61,7 @@ public class LogisticsModuleView extends AbstractBuildingModuleView {
                     this.clientColonyName = depot.getColonyName();
                     this.clientCreateTarget = depot.getCityTarget();
                     this.clientPlayerStockTarget = depot.getPlayerStockTarget();
+                    this.clientInstantDispatch = depot.isInstantDispatch();
                 }
             }
         }
@@ -66,6 +72,7 @@ public class LogisticsModuleView extends AbstractBuildingModuleView {
         this.clientColonyName = buf.readUtf();
         this.clientCreateTarget = buf.readUtf();
         this.clientPlayerStockTarget = buf.readInt();
+        this.clientInstantDispatch = buf.readBoolean();
     }
 
     @Override

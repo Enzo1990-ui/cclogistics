@@ -1,7 +1,11 @@
 package com.ogtenzohd.cclogistics.colony.network;
 
+import com.minecolonies.api.MinecoloniesAPIProxy;
+import com.minecolonies.api.colony.IColony;
+import com.mojang.logging.LogUtils;
 import com.ogtenzohd.cclogistics.CreateColonyLogistics;
 import com.ogtenzohd.cclogistics.blocks.custom.freight_depot.FreightDepotBlockEntity;
+import com.ogtenzohd.cclogistics.config.CCLConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
@@ -10,12 +14,9 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
-import com.ogtenzohd.cclogistics.config.CCLConfig;
 import org.slf4j.Logger;
-import com.mojang.logging.LogUtils;
 
-// Added int stockTarget to the record!
-public record UpdateLogisticsModulePacket(BlockPos pos, String colonyName, String cityTarget, int stockTarget) implements CustomPacketPayload {
+public record UpdateLogisticsModulePacket(BlockPos pos, String colonyName, String cityTarget, int stockTarget, boolean instantDispatch) implements CustomPacketPayload {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
@@ -25,7 +26,8 @@ public record UpdateLogisticsModulePacket(BlockPos pos, String colonyName, Strin
             BlockPos.STREAM_CODEC, UpdateLogisticsModulePacket::pos,
             ByteBufCodecs.STRING_UTF8, UpdateLogisticsModulePacket::colonyName,
             ByteBufCodecs.STRING_UTF8, UpdateLogisticsModulePacket::cityTarget,
-            ByteBufCodecs.INT, UpdateLogisticsModulePacket::stockTarget, // Serialize the integer
+            ByteBufCodecs.INT, UpdateLogisticsModulePacket::stockTarget,
+            ByteBufCodecs.BOOL, UpdateLogisticsModulePacket::instantDispatch,
             UpdateLogisticsModulePacket::new
     );
 
@@ -42,9 +44,20 @@ public record UpdateLogisticsModulePacket(BlockPos pos, String colonyName, Strin
                 LOGGER.info("   -> Colony: " + payload.colonyName + ", City: " + payload.cityTarget + ", Max Stock: " + payload.stockTarget);
             }
             if (player.level().getBlockEntity(payload.pos) instanceof FreightDepotBlockEntity depot) {
+                if (payload.instantDispatch) {
+                    IColony colony = MinecoloniesAPIProxy.getInstance().getColonyManager().getIColony(player.level(), payload.pos);
+                    ResourceLocation tabletResearch = ResourceLocation.fromNamespaceAndPath("cclogistics", "cclogistics/stock_tablets");
+
+                    if (colony == null || !colony.getResearchManager().getResearchTree().isComplete(tabletResearch)) {
+                        player.sendSystemMessage(net.minecraft.network.chat.Component.literal("Stock Tablets research not complete.")
+                                .withStyle(net.minecraft.ChatFormatting.RED));
+                        return;
+                    }
+                }
                 depot.setColonyName(payload.colonyName);
                 depot.setCityTarget(payload.cityTarget);
                 depot.setPlayerStockTarget(payload.stockTarget);
+                depot.setInstantDispatch(payload.instantDispatch());
                 depot.setChanged();
                 player.level().sendBlockUpdated(payload.pos, depot.getBlockState(), depot.getBlockState(), 3);
                 if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS))LOGGER.info("[Network] Updated Freight Depot via Module Packet.");

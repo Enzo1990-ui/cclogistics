@@ -69,6 +69,11 @@
 
   "cclogistics.display_source.freight_manifest": "Demandes du Dépôt de fret",
 
+  "com.cclogistics.research.cclogistics": "Logistique",
+  "com.cclogistics.research.cclogistics.stock_tablets_name": "Tablette de stock.",
+  "com.cclogistics.research.cclogistics.stock_tablets_subtitle": "Débloque la possibilité de faire des requêtes instantanées.",
+  "com.cclogistics.research.cclogistics.stock_tablets_description": "La tablette de stock permet à votre coordinateur logistique de faire des requêtes de n'importe où, il suffit d'activer le bouton.",
+
   "advancement.cclogistics.eat_ballast.title": "Un en-cas croustillant",
   "advancement.cclogistics.eat_ballast.desc": "Vous avez vraiment mangé le ballast des voies ferrées. Pourquoi ? Est-ce Amrris qui vous a dit de le faire ?",
 

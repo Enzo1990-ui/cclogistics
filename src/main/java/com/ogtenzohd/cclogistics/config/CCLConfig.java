@@ -14,7 +14,7 @@ public class CCLConfig {
     public final ModConfigSpec.EnumValue<DebugLevel> debugLevel;
     public final ModConfigSpec.IntValue coordinatorCooldown;
 
-    // --- NEW: MAX PLAYER CONFIG ---
+    // --- MAX PLAYER CONFIG ---
     public final ModConfigSpec.IntValue maxPlayerStockRequest;
 
     // --- SKILL SCALING ---

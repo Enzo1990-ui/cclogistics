@@ -110,9 +110,7 @@ public class FreightTrackerWindow extends AbstractModuleWindow<FreightTrackerMod
 
                 if (itemText != null && statusText != null) {
                     String rawName = (req.itemName != null && !req.itemName.isEmpty()) ? req.itemName : "Loading...";
-                    String shortItemName = rawName.length() > 20 ? rawName.substring(0, 17) + "..." : rawName;
-
-                    itemText.setText(Component.literal(req.amount + "x " + shortItemName).withStyle(net.minecraft.ChatFormatting.BLACK));
+                    itemText.setText(Component.literal(req.amount + "x " + rawName).withStyle(net.minecraft.ChatFormatting.BLACK));
 
                     String symbol = "• ";
                     String statusStr = req.status.display;

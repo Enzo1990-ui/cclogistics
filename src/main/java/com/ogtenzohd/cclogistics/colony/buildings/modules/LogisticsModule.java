@@ -11,6 +11,7 @@ public class LogisticsModule extends AbstractBuildingModule implements IPersiste
     private String colonyName = "";
     private String createTarget = "";
     private int playerStockTarget = 128;
+    private boolean instantDispatch = false; // NEW
 
     public LogisticsModule() { super(); }
 
@@ -35,6 +36,9 @@ public class LogisticsModule extends AbstractBuildingModule implements IPersiste
         if (tag.contains("playerStockTarget")) {
             this.playerStockTarget = tag.getInt("playerStockTarget");
         }
+        if (tag.contains("instantDispatch")) {
+            this.instantDispatch = tag.getBoolean("instantDispatch");
+        }
     }
 
     @Override
@@ -42,6 +46,7 @@ public class LogisticsModule extends AbstractBuildingModule implements IPersiste
         tag.putString("colonyName", this.colonyName);
         tag.putString("createTarget", this.createTarget);
         tag.putInt("playerStockTarget", this.playerStockTarget);
+        tag.putBoolean("instantDispatch", this.instantDispatch);
     }
 
     @Override
@@ -49,7 +54,9 @@ public class LogisticsModule extends AbstractBuildingModule implements IPersiste
         buf.writeUtf(this.colonyName);
         buf.writeUtf(this.createTarget);
         buf.writeInt(this.playerStockTarget);
+        buf.writeBoolean(this.instantDispatch);
     }
+
     public String getColonyName() { return colonyName; }
     public void setColonyName(String colonyName) {
         this.colonyName = colonyName;
@@ -65,6 +72,12 @@ public class LogisticsModule extends AbstractBuildingModule implements IPersiste
     public int getPlayerStockTarget() { return playerStockTarget; }
     public void setPlayerStockTarget(int target) {
         this.playerStockTarget = target;
+        setChanged();
+    }
+
+    public boolean isInstantDispatch() { return instantDispatch; }
+    public void setInstantDispatch(boolean instantDispatch) {
+        this.instantDispatch = instantDispatch;
         setChanged();
     }
 }

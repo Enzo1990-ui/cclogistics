@@ -66,11 +66,10 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
         public final ItemStack item;
         public final String address;
         public final int amount;
+        public final String requestId;
 
-        public ManifestEntry(ItemStack item, String address, int amount) {
-            this.item = item;
-            this.address = address;
-            this.amount = amount;
+        public ManifestEntry(ItemStack item, String address, int amount, String requestId) {
+            this.item = item; this.address = address; this.amount = amount; this.requestId = requestId;
         }
     }
 
@@ -265,21 +264,22 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                     if (be instanceof FreightDepotBlockEntity depotBE) {
 
                         for (ManifestEntry order : clipboardCacheB) {
-                            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) {
-                                LOGGER.info("[LogisticsAI]   -> Submitting to Logistics Bridge: " + order.amount + "x " + order.item.getHoverName().getString() + " destined for " + order.address);
-                            }
+                            ItemStack itemToSend = order.item.copy();
+                            net.minecraft.world.item.component.CustomData.update(net.minecraft.core.component.DataComponents.CUSTOM_DATA, itemToSend, tag -> {
+                                tag.putString("cclogistics:tracking_id", order.requestId);
+                            });
                             com.ogtenzohd.cclogistics.util.LogisticsBridge.sendPackage(
                                     depotBE.getStockTicker(),
-                                    order.item,
+                                    itemToSend,
                                     order.amount,
                                     order.address,
                                     null
                             );
 
-                            depotBE.updateTrackerByName(
-                                    order.item.getHoverName().getString(),
+                            depotBE.updateTrackerByTrackingId(
+                                    order.requestId,
                                     com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackStatus.ACCEPTED,
-                                    "Ordered"
+                                    "Requested"
                             );
                         }
 
@@ -348,6 +348,7 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
             entryTag.put("Item", entry.item.save(provider));
             entryTag.putString("Address", entry.address);
             entryTag.putInt("Amount", entry.amount);
+            entryTag.putString("requestId", entry.requestId);
             cacheBList.add(entryTag);
         }
         tag.put("ClipboardCacheB", cacheBList);
@@ -380,8 +381,9 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                 ItemStack item = ItemStack.parse(provider, entryTag.getCompound("Item")).orElse(ItemStack.EMPTY);
                 String address = entryTag.getString("Address");
                 int amount = entryTag.getInt("Amount");
+                String requestId = entryTag.getString("requestId");
                 if (!item.isEmpty()) {
-                    clipboardCacheB.add(new ManifestEntry(item, address, amount));
+                    clipboardCacheB.add(new ManifestEntry(item, address, amount, requestId));
                 }
             }
         }

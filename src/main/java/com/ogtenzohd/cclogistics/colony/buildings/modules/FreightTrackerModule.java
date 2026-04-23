@@ -32,7 +32,7 @@ public class FreightTrackerModule extends AbstractBuildingModule implements IPer
         public TrackStatus status;
         public String override;
         public long timestamp;
-        public boolean isIncoming = true; //
+        public boolean isIncoming = true;
     }
 
     private final Map<String, TrackedReq> requests = new ConcurrentHashMap<>();
@@ -161,4 +161,15 @@ public class FreightTrackerModule extends AbstractBuildingModule implements IPer
             buf.writeBoolean(e.getValue().isIncoming);
         }
     }
+
+    public String findPendingMinecoloniesOrder(String itemName) {
+        for (Map.Entry<String, TrackedReq> e : requests.entrySet()) {
+            TrackedReq req = e.getValue();
+            if (!e.getKey().startsWith("PKG-") && req.status != TrackStatus.COMPLETED && req.itemName != null && req.itemName.equals(itemName)) {
+                return e.getKey();
+            }
+        }
+        return null;
+    }
+
 }

@@ -18,7 +18,7 @@ import java.util.Set;
 
 public class FreightScannerBlockEntity extends BeltTunnelBlockEntity {
 
-    // We keep track of UUIDs we've already scanned so it doesn't beep 50 times while the box is moving!
+    // keep track of UUIDs we've already scanned so it doesn't beep 50 times while the box is moving!
     private final Set<String> recentlyScanned = new HashSet<>();
     private int cooldown = 0;
     private BlockPos linkedDepot = null;
@@ -32,20 +32,15 @@ public class FreightScannerBlockEntity extends BeltTunnelBlockEntity {
         super.tick();
 
         if (level == null || level.isClientSide) return;
-
-        // Memory cleanup so the scanner can scan new boxes eventually
         if (cooldown > 0) {
             cooldown--;
             if (cooldown == 0) {
                 recentlyScanned.clear();
             }
         }
-
-        // --- FIX: Read the inventory of the block directly below the scanner! ---
         IItemHandler inventory = level.getCapability(Capabilities.ItemHandler.BLOCK, worldPosition.below(), Direction.UP);
 
         if (inventory != null) {
-            // Scan everything currently sliding underneath us
             for (int i = 0; i < inventory.getSlots(); i++) {
                 ItemStack stack = inventory.getStackInSlot(i);
 
@@ -54,17 +49,14 @@ public class FreightScannerBlockEntity extends BeltTunnelBlockEntity {
 
                     if (trackingId != null && !recentlyScanned.contains(trackingId)) {
                         recentlyScanned.add(trackingId);
-                        cooldown = 40; // Gives it a 2-second memory to avoid spam beeping
-
-                        // PLAY THE BEEP SOUND! (High pitch UI click sounds exactly like a scanner)
+                        cooldown = 5;
                         level.playSound(null, getBlockPos(), SoundEvents.UI_BUTTON_CLICK.value(), SoundSource.BLOCKS, 1.0F, 2.0F);
 
                         if (linkedDepot != null && level.getBlockEntity(linkedDepot) instanceof com.ogtenzohd.cclogistics.blocks.custom.freight_depot.FreightDepotBlockEntity depotBE) {
-                            // Ping the depot to update the database!
                             depotBE.updateTrackerByTrackingId(
                                     trackingId,
                                     com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackStatus.IN_TRANSIT,
-                                    "En Route"
+                                    null
                             );
                         }
                     }
@@ -73,14 +65,12 @@ public class FreightScannerBlockEntity extends BeltTunnelBlockEntity {
         }
     }
 
-    // Checks if the item is a Create package
     private boolean isPackage(ItemStack stack) {
         if (stack.isEmpty()) return false;
         String hover = stack.getHoverName().getString().toLowerCase();
         return hover.contains("package") || hover.contains("box");
     }
 
-    // Safely extracts our custom UUID from the package
     private String getTrackingId(ItemStack stack) {
         try {
             net.minecraft.world.item.component.CustomData customData = stack.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);

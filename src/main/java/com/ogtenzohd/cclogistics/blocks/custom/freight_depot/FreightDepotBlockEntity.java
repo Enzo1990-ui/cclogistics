@@ -46,6 +46,7 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
     private long lastTrainCheck = 0;
     private BlockPos manualTickerPos = null;
     private int playerStockTarget = 128;
+    private boolean instantDispatch = false;
 
     private final Set<Object> activeRequestIds = new HashSet<>();
     private final List<String> pendingIncomingLogs = new ArrayList<>();
@@ -66,6 +67,9 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
             setChanged();
         }
     };
+
+    public boolean isInstantDispatch() { return instantDispatch; }
+    public void setInstantDispatch(boolean instantDispatch) { this.instantDispatch = instantDispatch; setChanged(); }
 
     public FreightDepotBlockEntity(BlockPos pos, BlockState state) {
         super(CCLRegistration.FREIGHT_DEPOT_BE.get(), pos, state);
@@ -189,7 +193,8 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
                 (log) -> this.addIncomingLog(log, 100),
                 (stack) -> this.protectItem(stack, 30),
                 this::updateTracker,
-                this::cacheManifestOrder
+
+                this.isInstantDispatch() ? null : this::cacheManifestOrder
         );
     }
 
@@ -209,6 +214,14 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
                 }
             }
         }
+    }
+
+    public String getPendingMinecoloniesId(String itemName) {
+        if (getBuilding() != null) {
+            com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule tracker = getBuilding().getModule(com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.class);
+            if (tracker != null) return tracker.findPendingMinecoloniesOrder(itemName);
+        }
+        return null;
     }
 
     public void updateTrackerByName(String itemName, com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackStatus status, String override) {
@@ -379,15 +392,11 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
         return resolveTicker();
     }
 
-    public void cacheManifestOrder(ItemStack item, int amount, String targetAddress) {
-        if (item.isEmpty() || amount <= 0) return;
-        if (this.cacheA.size() >= 10) {
-            this.cacheA.remove(0);
-        }
-
+    public void cacheManifestOrder(ItemStack item, int amount, String targetAddress, String requestId) {
+        if (this.cacheA.size() >= 256) this.cacheA.remove(0);
         ItemStack cachedStack = item.copy();
         cachedStack.setCount(1);
-        this.cacheA.add(new com.ogtenzohd.cclogistics.colony.ai.LogisticsCoordinatorAI.ManifestEntry(cachedStack, targetAddress, amount));
+        this.cacheA.add(new com.ogtenzohd.cclogistics.colony.ai.LogisticsCoordinatorAI.ManifestEntry(cachedStack, targetAddress, amount, requestId));
         setChanged();
     }
 
@@ -397,6 +406,7 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
         tag.putString("ColonyName", colonyName);
         tag.putString("CityTarget", cityTarget);
         tag.putInt("PlayerStockTarget", playerStockTarget);
+        tag.putBoolean("InstantDispatch", instantDispatch);
         if (manualTickerPos != null) tag.put("TickerLink", NbtUtils.writeBlockPos(manualTickerPos));
 
         tag.put("Inventory", inventory.serializeNBT(provider));
@@ -442,6 +452,7 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
         if (tag.contains("CityTarget")) cityTarget = tag.getString("CityTarget");
         if (tag.contains("PlayerStockTarget")) playerStockTarget = tag.getInt("PlayerStockTarget"); // Load the stock target
         if (tag.contains("TickerLink")) manualTickerPos = NbtUtils.readBlockPos(tag, "TickerLink").orElse(null);
+        if (tag.contains("InstantDispatch")) instantDispatch = tag.getBoolean("InstantDispatch");
 
         if (tag.contains("Inventory")) {
             inventory.deserializeNBT(provider, tag.getCompound("Inventory"));
@@ -468,8 +479,9 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
                 ItemStack item = ItemStack.parse(provider, entryTag.getCompound("Item")).orElse(ItemStack.EMPTY);
                 String address = entryTag.getString("Address");
                 int amount = entryTag.getInt("Amount");
+                String requestId = entryTag.getString("requestId");
                 if (!item.isEmpty()) {
-                    cacheA.add(new com.ogtenzohd.cclogistics.colony.ai.LogisticsCoordinatorAI.ManifestEntry(item, address, amount));
+                    cacheA.add(new com.ogtenzohd.cclogistics.colony.ai.LogisticsCoordinatorAI.ManifestEntry(item, address, amount, requestId));
                 }
             }
         }

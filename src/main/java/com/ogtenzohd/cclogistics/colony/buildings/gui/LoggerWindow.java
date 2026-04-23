@@ -57,8 +57,6 @@ public class LoggerWindow extends AbstractModuleWindow<LoggerModuleView> {
         if (logList == null) return;
         
         List<String> logs = new ArrayList<>();
-        
-        // Use the hidden tags to perfectly filter the lists!
         if (type.equals("all")) {
             logs.addAll(moduleView.getIncomingLogs());
             logs.addAll(moduleView.getOutgoingLogs());
@@ -91,8 +89,6 @@ public class LoggerWindow extends AbstractModuleWindow<LoggerModuleView> {
             public void updateElement(int index, Pane rowPane) {
                 if (index < 0 || index >= logs.size()) return;
                 String log = logs.get(index);
-                
-                //cut off the hidden prefix so the player doesn't see "IN;" or "MISS;"
                 String displayLog = log;
                 if (log.contains(";")) {
                     displayLog = log.split(";", 2)[1];
