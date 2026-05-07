@@ -40,6 +40,7 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
     private State state = State.IDLE;
     private int delay = 0;
     private BlockPos currentTarget = null;
+    private int pathCooldown = 0;
     private final java.util.List<ManifestEntry> clipboardCacheB = new java.util.ArrayList<>();
     private final java.util.List<PendingPickup> pendingPickups = new java.util.ArrayList<>();
 
@@ -402,18 +403,17 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
     }
 
     private void moveTo(BlockPos pos) {
-        if (!job.getCitizen().getEntity().isPresent()) {
-            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.warn("[LogisticsAI] Citizen Entity not present during moveTo!");
+        if (pathCooldown > 0) {
+            pathCooldown--;
             return;
         }
+
         job.getCitizen().getEntity().ifPresent(entity -> {
-            double baseSpeed = 1.0;
-            if (CCLConfig.INSTANCE.enableSkillScaling.get()) {
-                int athletics = getSkillLevel(Skill.Athletics);
-                baseSpeed += athletics * CCLConfig.INSTANCE.speedBoostPerAthletics.get();
-            }
-            entity.getNavigation().moveTo(pos.getX(), pos.getY(), pos.getZ(), baseSpeed);
+            double rawSpeed = 1.0 + (CCLConfig.INSTANCE.enableSkillScaling.get() ? getSkillLevel(Skill.Athletics) * CCLConfig.INSTANCE.speedBoostPerAthletics.get() : 0);
+            double safeSpeed = Math.min(rawSpeed, 2.0);
+            entity.getNavigation().moveTo(pos.getX(), pos.getY(), pos.getZ(), safeSpeed);
         });
+        pathCooldown = 20;
     }
 
     private boolean isAt(BlockPos pos) {

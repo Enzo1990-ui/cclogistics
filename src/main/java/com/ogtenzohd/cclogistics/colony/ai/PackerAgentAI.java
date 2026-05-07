@@ -50,6 +50,7 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
     private State state = State.IDLE;
     private int delay = 0;
     private BlockPos currentTarget = null;
+    private int pathCooldown = 0;
 
     private net.minecraft.core.BlockPos prankTarget = null;
     private int prankTickTimer = 0;
@@ -282,7 +283,8 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
             case LOADING_TRAIN:    tickLoadTrain(); break;
             case GENERAL_DUTY:
                 if (state == State.IDLE || state == State.TO_DEPOT_IMPORT || state == State.AT_DEPOT_IMPORT ||
-                        state == State.TO_WAREHOUSE || state == State.AT_WAREHOUSE) {
+                        state == State.TO_WAREHOUSE || state == State.AT_WAREHOUSE ||
+                        state == State.TO_EXPRESS_DELIVERY || state == State.AT_EXPRESS_DELIVERY) {
                     tickUnpackImport();
                 } else {
                     tickPackExport();
@@ -334,16 +336,36 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                                         if (!rawItemsToPack.isEmpty()) break;
                                         ItemStack extracted = importInv.extractItem(i, 64, false);
                                         ItemHandlerHelper.insertItemStacked(getInventory(), extracted, false);
-                                        String trackingId = getTrackingId(extracted);
-                                        for (ItemStack content : unpack(extracted)) {
-                                            if (trackingId != null) {
-                                                updateTrackerById(trackingId, FreightTrackerModule.TrackStatus.IN_TRANSIT);
-                                            } else {
-                                                updateTrackerByName(content.getHoverName().getString(), FreightTrackerModule.TrackStatus.IN_TRANSIT);
+                                        String packageAddress = getPackageAddress(extracted);
+                                        String myColonyName = depotBE.getColonyName();
+                                        boolean isExpress = false;
+
+                                        if (packageAddress != null && packageAddress.toLowerCase().startsWith(myColonyName.toLowerCase() + "-express;")) {
+                                            String[] parts = packageAddress.split(";");
+                                            if (parts.length > 1) {
+                                                String[] coords = parts[1].split(",");
+                                                if (coords.length == 3) {
+                                                    try {
+                                                        int x = Integer.parseInt(coords[0]);
+                                                        int y = Integer.parseInt(coords[1]);
+                                                        int z = Integer.parseInt(coords[2]);
+                                                        this.currentTarget = new BlockPos(x, y, z);
+                                                        isExpress = true;
+                                                        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) {
+                                                            LOGGER.info("[PackerAI] Rerouting imported vault package to EXPRESS: {}", currentTarget);
+                                                        }
+                                                    } catch (NumberFormatException ignored) {}
+                                                }
                                             }
                                         }
-                                        state = State.TO_WAREHOUSE;
+
+                                        for (ItemStack content : unpack(extracted)) {
+                                            updateTrackerByName(content.getHoverName().getString(), isExpress ? FreightTrackerModule.TrackStatus.DELIVERING : FreightTrackerModule.TrackStatus.IN_TRANSIT);
+                                        }
+
+                                        state = isExpress ? State.TO_EXPRESS_DELIVERY : State.TO_WAREHOUSE;
                                         return;
+
                                     } else {
                                         rawItemsToPack.add(importInv.extractItem(i, 64, false));
                                     }
@@ -1142,7 +1164,17 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
     }
 
     private void moveTo(BlockPos pos) {
-        job.getCitizen().getEntity().ifPresent(entity -> entity.getNavigation().moveTo(pos.getX(), pos.getY(), pos.getZ(), 1.0 + (CCLConfig.INSTANCE.enableSkillScaling.get() ? getSkillLevel(Skill.Athletics) * CCLConfig.INSTANCE.speedBoostPerAthletics.get() : 0)));
+        if (pathCooldown > 0) {
+            pathCooldown--;
+            return;
+        }
+
+        job.getCitizen().getEntity().ifPresent(entity -> {
+            double rawSpeed = 1.0 + (CCLConfig.INSTANCE.enableSkillScaling.get() ? getSkillLevel(Skill.Athletics) * CCLConfig.INSTANCE.speedBoostPerAthletics.get() : 0);
+            double safeSpeed = Math.min(rawSpeed, 2.0);
+            entity.getNavigation().moveTo(pos.getX(), pos.getY(), pos.getZ(), safeSpeed);
+        });
+        pathCooldown = 20;
     }
 
     private boolean isAt(BlockPos pos) {

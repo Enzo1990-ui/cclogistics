@@ -78,16 +78,16 @@ public class CCLRegistration {
             TrackClearanceBlock::new);
 
     public static final DeferredHolder<Block, LogisticsPathBlock> LOGISTICS_PATH = BLOCKS.register("logistics_path",
-            () -> new LogisticsPathBlock(BlockBehaviour.Properties.of() .mapColor(net.minecraft.world.level.material.MapColor.STONE) .strength(1.5f) .sound(SoundType.STONE) .requiresCorrectToolForDrops() .speedFactor(1.3f)));
+            () -> new LogisticsPathBlock(BlockBehaviour.Properties.of() .mapColor(net.minecraft.world.level.material.MapColor.STONE) .strength(1.5f) .sound(SoundType.STONE) .requiresCorrectToolForDrops() .speedFactor(1.3f).noOcclusion()));
 
     public static final DeferredHolder<Block, LogisticsPathBlock> BLACK_LOGISTICS_PATH = BLOCKS.register("black_logistics_path",
-            () -> new LogisticsPathBlock(BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_BLACK).strength(1.5f).sound(SoundType.STONE).speedFactor(1.3f)));
+            () -> new LogisticsPathBlock(BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_BLACK).strength(1.5f).sound(SoundType.STONE).speedFactor(1.3f).noOcclusion()));
 
     public static final DeferredHolder<Block, LogisticsPathBlock> WHITE_LOGISTICS_PATH = BLOCKS.register("white_logistics_path",
-            () -> new LogisticsPathBlock(BlockBehaviour.Properties.of().mapColor(MapColor.SNOW).strength(1.5f).sound(SoundType.STONE).speedFactor(1.3f)));
+            () -> new LogisticsPathBlock(BlockBehaviour.Properties.of().mapColor(MapColor.SNOW).strength(1.5f).sound(SoundType.STONE).speedFactor(1.3f).noOcclusion()));
 
     public static final DeferredHolder<Block, LogisticsPathBlock> MOSSY_LOGISTICS_PATH = BLOCKS.register("mossy_logistics_path",
-            () -> new LogisticsPathBlock(BlockBehaviour.Properties.of().mapColor(MapColor.PLANT).strength(1.5f).sound(SoundType.STONE).speedFactor(1.3f)));
+            () -> new LogisticsPathBlock(BlockBehaviour.Properties.of().mapColor(MapColor.PLANT).strength(1.5f).sound(SoundType.STONE).speedFactor(1.3f).noOcclusion()));
 
     public static final DeferredHolder<Block, LogisticsPathBlock> ILLUMINATED_PATH = BLOCKS.register("illuminated_path",
             () -> new LogisticsPathBlock(BlockBehaviour.Properties.of().mapColor(MapColor.STONE).strength(1.5f).sound(SoundType.GLASS).speedFactor(1.3f).lightLevel(state -> 12).noOcclusion()));

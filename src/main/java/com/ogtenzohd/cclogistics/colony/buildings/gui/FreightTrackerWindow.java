@@ -126,13 +126,13 @@ public class FreightTrackerWindow extends AbstractModuleWindow<FreightTrackerMod
                     } else if (statusStr.contains("Delivering")) {
                         symbol = "§d➔ ";
                     } else if (statusStr.contains("Depot Received")) {
-                        symbol = "§b📦 ";
+                        symbol = "§1📦 ";
                     } else if (statusStr.contains("En Route")) {
-                        symbol = "§a🚂 ";
+                        symbol = "§3🚂 ";
                     } else if (statusStr.contains("Ticker Received")) {
-                        symbol = "§e📥 ";
+                        symbol = "§6📥 ";
                     } else if (statusStr.contains("Requested")) {
-                        symbol = "§e⏳ ";
+                        symbol = "§6⏳ ";
                     }
 
                     statusText.setText(Component.literal(symbol + statusStr));

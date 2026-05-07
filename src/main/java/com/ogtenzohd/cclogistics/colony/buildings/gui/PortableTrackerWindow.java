@@ -116,10 +116,10 @@ public class PortableTrackerWindow extends BOWindow {
                     if (statusStr.contains("Out of Stock")) symbol = "§c✖ ";
                     else if (statusStr.contains("Complete")) symbol = "§2✔ ";
                     else if (statusStr.contains("Delivering")) symbol = "§d➔ ";
-                    else if (statusStr.contains("Depot Received")) symbol = "§b📦 ";
-                    else if (statusStr.contains("En Route")) symbol = "§a🚂 ";
-                    else if (statusStr.contains("Ticker Received")) symbol = "§e📥 ";
-                    else if (statusStr.contains("Requested")) symbol = "§e⏳ ";
+                    else if (statusStr.contains("Depot Received")) symbol = "§1📦 ";
+                    else if (statusStr.contains("En Route")) symbol = "§3🚂 ";
+                    else if (statusStr.contains("Ticker Received")) symbol = "§6📥 ";
+                    else if (statusStr.contains("Requested")) symbol = "§6⏳ ";
 
                     statusText.setText(Component.literal(symbol + statusStr));
                 }

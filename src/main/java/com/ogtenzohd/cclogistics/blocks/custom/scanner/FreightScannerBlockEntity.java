@@ -56,7 +56,7 @@ public class FreightScannerBlockEntity extends BeltTunnelBlockEntity {
                             depotBE.updateTrackerByTrackingId(
                                     trackingId,
                                     com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackStatus.IN_TRANSIT,
-                                    null
+                                    "Leaving Warehouse"
                             );
                         }
                     }

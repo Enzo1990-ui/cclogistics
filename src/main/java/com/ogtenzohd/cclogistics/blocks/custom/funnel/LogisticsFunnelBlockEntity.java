@@ -66,11 +66,11 @@ public class LogisticsFunnelBlockEntity extends FunnelBlockEntity {
                             CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> {
                                 tag.putString("cclogistics:tracking_id", finalId);
                             });
-                            depotBE.updateTracker(trackingId, itemName, getPrimaryItemAmount(stack), com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackStatus.ACCEPTED, "§e[Dispached]");
+                            depotBE.updateTracker(trackingId, itemName, getPrimaryItemAmount(stack), com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackStatus.ACCEPTED, "Dispached");
                         }
                     } else {
                         if (linkedDepot != null && level.getBlockEntity(linkedDepot) instanceof FreightDepotBlockEntity depotBE) {
-                            depotBE.updateTrackerByTrackingId(trackingId, com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackStatus.ACCEPTED, "§e[Dispached]");
+                            depotBE.updateTrackerByTrackingId(trackingId, com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackStatus.ACCEPTED, "Dispached");
                         }
                     }
                 }

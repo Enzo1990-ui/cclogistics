@@ -68,10 +68,10 @@
 
   "cclogistics.display_source.freight_manifest": "Freight Depot requests",
 
-  "com.cclogistics.research.cclogistics": "Logistics",
-  "com.cclogistics.research.cclogistics.stock_tablets_name": "Stock Tablet.",
-  "com.cclogistics.research.cclogistics.stock_tablets_subtitle": "Unlock the ability to instant request.",
-  "com.cclogistics.research.cclogistics.stock_tablets_description": "The Stock Tablet allows your Logistics Coordinator to request from anywhere, just toggle the switch.",
+  "com.cclogistics.research.logistics.name": "Logistics",
+  "com.cclogistics.research.logistics.stock_tablets.name": "Stock Tablet.",
+  "com.cclogistics.research.stock_tablets.subtitle": "Unlock the ability to instant request.",
+  "com.cclogistics.research.effects.stock_tablets.description": "The Stock Tablet allows your Logistics Coordinator to request from anywhere, just toggle the switch.",
 
   "advancement.cclogistics.eat_ballast.title": "A Crunchy Snack",
   "advancement.cclogistics.eat_ballast.desc": "You actually ate the train track ballast. Why? Did Amrris tell you to do it?",
