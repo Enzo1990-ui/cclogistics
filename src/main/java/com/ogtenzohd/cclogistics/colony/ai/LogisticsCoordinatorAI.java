@@ -5,6 +5,7 @@ import com.minecolonies.api.colony.requestsystem.requestable.Stack;
 import com.minecolonies.api.colony.requestsystem.token.IToken;
 import com.minecolonies.api.crafting.ItemStorage;
 import com.minecolonies.api.entity.citizen.Skill;
+import com.minecolonies.api.util.EntityUtils;
 import com.minecolonies.api.util.InventoryUtils;
 import com.minecolonies.core.entity.ai.workers.AbstractEntityAIBasic;
 import com.mojang.logging.LogUtils;
@@ -40,7 +41,6 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
     private State state = State.IDLE;
     private int delay = 0;
     private BlockPos currentTarget = null;
-    private int pathCooldown = 0;
     private final java.util.List<ManifestEntry> clipboardCacheB = new java.util.ArrayList<>();
     private final java.util.List<PendingPickup> pendingPickups = new java.util.ArrayList<>();
 
@@ -94,7 +94,8 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
 
                 if (townHall != null) {
                     currentTarget = townHall.getPosition();
-                    moveTo(currentTarget);
+                    this.walkToSafePos(currentTarget);
+
                     if (isAt(currentTarget)) {
                         if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] Successfully navigated to TOWNHALL. Transitioning to AT_TOWNHALL.");
                         state = State.AT_TOWNHALL;
@@ -143,7 +144,8 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
 
                 if (warehouse != null) {
                     currentTarget = warehouse.getPosition();
-                    moveTo(currentTarget);
+                    this.walkToSafePos(currentTarget);
+
                     if (isAt(currentTarget)) {
                         if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] Successfully navigated to WAREHOUSE. Transitioning to AT_WAREHOUSE.");
                         state = State.AT_WAREHOUSE;
@@ -226,7 +228,7 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                                 pendingPickups.add(new PendingPickup(itemName, amountToRequestThisTrip, now));
                                 FreightTrackerModule module = depot.getModule(FreightTrackerModule.class);
                                 if (module != null) {
-                                    module.updateRequest(itemName + "_export_" + now, itemName, amountToRequestThisTrip, FreightTrackerModule.TrackStatus.REQUESTED, "Export Pending", false);
+                                    module.updateRequest(itemName + "_export_" + now, itemName, amountToRequestThisTrip, FreightTrackerModule.TrackStatus.PROCESSING, "Export Pending", false);
                                 }
 
                                 if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] -> Successfully spawned internal Request Token for " + amountToRequestThisTrip + "x " + itemName);
@@ -248,7 +250,8 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                 com.minecolonies.api.colony.buildings.IBuilding depotWork = job.getWorkBuilding();
                 if (depotWork != null) {
                     currentTarget = depotWork.getPosition();
-                    moveTo(currentTarget);
+                    this.walkToSafePos(currentTarget);
+
                     if (isAt(currentTarget)) {
                         if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.info("[LogisticsAI] Successfully navigated to DEPOT. Transitioning to AT_DEPOT.");
                         state = State.AT_DEPOT;
@@ -279,8 +282,8 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
 
                             depotBE.updateTrackerByTrackingId(
                                     order.requestId,
-                                    com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackStatus.ACCEPTED,
-                                    "Requested"
+                                    com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackStatus.PROCESSING,
+                                    "Order Placed"
                             );
                         }
 
@@ -402,24 +405,11 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
         }
     }
 
-    private void moveTo(BlockPos pos) {
-        if (pathCooldown > 0) {
-            pathCooldown--;
-            return;
-        }
-
-        job.getCitizen().getEntity().ifPresent(entity -> {
-            double rawSpeed = 1.0 + (CCLConfig.INSTANCE.enableSkillScaling.get() ? getSkillLevel(Skill.Athletics) * CCLConfig.INSTANCE.speedBoostPerAthletics.get() : 0);
-            double safeSpeed = Math.min(rawSpeed, 2.0);
-            entity.getNavigation().moveTo(pos.getX(), pos.getY(), pos.getZ(), safeSpeed);
-        });
-        pathCooldown = 20;
-    }
-
     private boolean isAt(BlockPos pos) {
-        return job.getCitizen().getEntity().map(e -> e.blockPosition().closerThan(pos, 3.0)).orElseGet(() -> {
-            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.warn("[LogisticsAI] Citizen Entity not present during isAt!");
+        if (this.worker == null || pos == null) {
+            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) LOGGER.warn("[LogisticsAI] Citizen Worker or Target Pos is null during isAt check!");
             return false;
-        });
+        }
+        return EntityUtils.isLivingAtSite(this.worker, pos.getX(), pos.getY(), pos.getZ(), 4);
     }
 }

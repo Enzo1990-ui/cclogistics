@@ -450,7 +450,7 @@ public class FreightDepotBlockEntity extends SmartColonyBlockEntity implements M
         super.loadAdditional(tag, provider);
         if (tag.contains("ColonyName")) colonyName = tag.getString("ColonyName");
         if (tag.contains("CityTarget")) cityTarget = tag.getString("CityTarget");
-        if (tag.contains("PlayerStockTarget")) playerStockTarget = tag.getInt("PlayerStockTarget"); // Load the stock target
+        if (tag.contains("PlayerStockTarget")) playerStockTarget = tag.getInt("PlayerStockTarget");
         if (tag.contains("TickerLink")) manualTickerPos = NbtUtils.readBlockPos(tag, "TickerLink").orElse(null);
         if (tag.contains("InstantDispatch")) instantDispatch = tag.getBoolean("InstantDispatch");
 

@@ -58,6 +58,12 @@ public class CCLPackets {
                 CancelFreightRequestPacket.STREAM_CODEC,
                 CancelFreightRequestPacket::handle
         );
+
+        registrar.playToServer(
+                ForceDispatchPacket.TYPE,
+                ForceDispatchPacket.STREAM_CODEC,
+                ForceDispatchPacket::handle
+        );
     }
 
     public static void sendToServer(CustomPacketPayload payload) {

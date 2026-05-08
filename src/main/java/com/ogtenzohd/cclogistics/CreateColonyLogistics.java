@@ -15,6 +15,8 @@ import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import org.slf4j.Logger;
 
 import java.util.List;
@@ -23,25 +25,26 @@ import java.util.Map;
 @Mod(CreateColonyLogistics.MODID)
 public class CreateColonyLogistics {
     public static final String MODID = "cclogistics";
-    
+
     public static final Logger LOGGER = LogUtils.getLogger();
 
     public CreateColonyLogistics(IEventBus modEventBus, ModContainer modContainer) {
         LOGGER.info("[CCLogistics] Mod Construction Starting...");
-        
+
         modContainer.registerConfig(ModConfig.Type.COMMON, CCLConfig.SPEC);
-        
+
         CCLRegistration.register(modEventBus);
-        
+
         modEventBus.addListener(this::commonSetup);
-        modEventBus.addListener(CCLPackets::register); 
-        
+        modEventBus.addListener(CCLPackets::register);
+        NeoForge.EVENT_BUS.addListener(this::onRegisterCommands);
+
         LOGGER.info("[CCLogistics] Mod Construction Complete.");
     }
-    
+
     private void commonSetup(final FMLCommonSetupEvent event) {
         LOGGER.info("[CCLogistics] Common Setup Starting...");
-        
+
         event.enqueueWork(() -> {
 
             DisplaySource.BY_BLOCK_ENTITY.add(
@@ -50,11 +53,11 @@ public class CreateColonyLogistics {
             );
 
             Map<String, Map<EventType, List<Tuple<SoundEvent, SoundEvent>>>> sounds = ModSoundEvents.CITIZEN_SOUND_EVENTS;
-            
+
             String[] myJobs = {"logistics_coordinator", "freight_inspector", "packer_agent"};
-            
+
             var baseSoundMap = sounds.get("deliveryman");
-            
+
             if (baseSoundMap != null) {
                 LOGGER.info("[CCLogistics] Registering Citizen Sounds...");
                 for (String jobName : myJobs) {
@@ -66,8 +69,12 @@ public class CreateColonyLogistics {
                 LOGGER.warn("[CCLogistics] Could not find base 'deliveryman' sounds!");
             }
         });
-        
+
         LOGGER.info("[CCLogistics] Common Setup Complete.");
         HolidayManager.refreshHolidays();
+    }
+
+    public void onRegisterCommands(RegisterCommandsEvent event) {
+        com.ogtenzohd.cclogistics.util.PurgeTrackerCommand.register(event.getDispatcher());
     }
 }

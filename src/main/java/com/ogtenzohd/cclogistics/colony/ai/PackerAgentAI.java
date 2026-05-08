@@ -3,6 +3,7 @@ package com.ogtenzohd.cclogistics.colony.ai;
 // WARNING COLONISTS WERE HARMED DURING THE MAKING OF THIS MOD!!!
 
 import com.minecolonies.api.entity.citizen.Skill;
+import com.minecolonies.api.util.EntityUtils;
 import com.minecolonies.core.entity.ai.workers.AbstractEntityAIBasic;
 import com.mojang.logging.LogUtils;
 import com.ogtenzohd.cclogistics.blocks.custom.freight_depot.FreightDepotBlockEntity;
@@ -50,7 +51,6 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
     private State state = State.IDLE;
     private int delay = 0;
     private BlockPos currentTarget = null;
-    private int pathCooldown = 0;
 
     private net.minecraft.core.BlockPos prankTarget = null;
     private int prankTickTimer = 0;
@@ -176,8 +176,7 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
         job.getCitizen().getEntity().ifPresent(entity -> {
             net.minecraft.world.level.Level level = entity.level();
             prankTickTimer++;
-
-            if (prankTarget != null) moveTo(prankTarget);
+            if (prankTarget != null) this.walkToUnSafePos(prankTarget);
 
             if (prankTickTimer % 10 == 0 && prankBoxesDropped < 3) {
                 if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
@@ -305,7 +304,7 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
             case TO_DEPOT_IMPORT:
                 if (job.getWorkBuilding() != null) {
                     currentTarget = job.getWorkBuilding().getPosition();
-                    moveTo(currentTarget);
+                    this.walkToSafePos(currentTarget);
                     if (isAt(currentTarget)) {
                         state = State.AT_DEPOT_IMPORT;
                         delay = 20;
@@ -316,7 +315,7 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
             case AT_DEPOT_IMPORT:
                 if (checkHolidayEvents()) return;
                 if (hasWorkItemsInInventory()) {
-                    state = State.TO_WAREHOUSE;
+                    routeToNextDelivery();
                     return;
                 }
 
@@ -326,51 +325,38 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                         IItemHandler importInv = depotBE.getImportInventory();
                         if (importInv != null) {
                             List<ItemStack> rawItemsToPack = new ArrayList<>();
-                            int maxCapacity = Math.min(2 + (CCLConfig.INSTANCE.enableSkillScaling.get() ? getSkillLevel(Skill.Strength) * CCLConfig.INSTANCE.packerCapacityPerStrength.get() : 0), 9);
+                            int maxRawCapacity = Math.min(2 + (CCLConfig.INSTANCE.enableSkillScaling.get() ? getSkillLevel(Skill.Strength) * CCLConfig.INSTANCE.packerCapacityPerStrength.get() : 0), 9);
+                            int maxPackageCapacity = Math.min(1 + (CCLConfig.INSTANCE.enableSkillScaling.get() ? getSkillLevel(Skill.Stamina) / 5 : 0), getInventory().getSlots());
+
+                            int packagesPickedUp = 0;
 
                             for (int i = 0; i < importInv.getSlots(); i++) {
-                                if (rawItemsToPack.size() >= maxCapacity) break;
                                 ItemStack check = importInv.extractItem(i, 64, true);
                                 if (!check.isEmpty()) {
                                     if (isPackage(check)) {
                                         if (!rawItemsToPack.isEmpty()) break;
+                                        if (packagesPickedUp >= maxPackageCapacity) break;
+
                                         ItemStack extracted = importInv.extractItem(i, 64, false);
                                         ItemHandlerHelper.insertItemStacked(getInventory(), extracted, false);
-                                        String packageAddress = getPackageAddress(extracted);
-                                        String myColonyName = depotBE.getColonyName();
-                                        boolean isExpress = false;
-
-                                        if (packageAddress != null && packageAddress.toLowerCase().startsWith(myColonyName.toLowerCase() + "-express;")) {
-                                            String[] parts = packageAddress.split(";");
-                                            if (parts.length > 1) {
-                                                String[] coords = parts[1].split(",");
-                                                if (coords.length == 3) {
-                                                    try {
-                                                        int x = Integer.parseInt(coords[0]);
-                                                        int y = Integer.parseInt(coords[1]);
-                                                        int z = Integer.parseInt(coords[2]);
-                                                        this.currentTarget = new BlockPos(x, y, z);
-                                                        isExpress = true;
-                                                        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) {
-                                                            LOGGER.info("[PackerAI] Rerouting imported vault package to EXPRESS: {}", currentTarget);
-                                                        }
-                                                    } catch (NumberFormatException ignored) {}
-                                                }
-                                            }
-                                        }
+                                        packagesPickedUp++;
 
                                         for (ItemStack content : unpack(extracted)) {
-                                            updateTrackerByName(content.getHoverName().getString(), isExpress ? FreightTrackerModule.TrackStatus.DELIVERING : FreightTrackerModule.TrackStatus.IN_TRANSIT);
+                                            updateTrackerByName(content.getHoverName().getString(), FreightTrackerModule.TrackStatus.DEPOT_RECEIVED);
                                         }
-
-                                        state = isExpress ? State.TO_EXPRESS_DELIVERY : State.TO_WAREHOUSE;
-                                        return;
-
                                     } else {
+                                        if (packagesPickedUp > 0) break;
+                                        if (rawItemsToPack.size() >= maxRawCapacity) break;
                                         rawItemsToPack.add(importInv.extractItem(i, 64, false));
                                     }
                                 }
                             }
+
+                            if (packagesPickedUp > 0) {
+                                routeToNextDelivery();
+                                return;
+                            }
+
                             if (!rawItemsToPack.isEmpty()) {
                                 ItemStack packed = pack(rawItemsToPack, "");
                                 if (!packed.isEmpty()) {
@@ -381,9 +367,9 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                                     }
                                 }
                                 for (ItemStack rawItem : rawItemsToPack) {
-                                    updateTrackerByName(rawItem.getHoverName().getString(), FreightTrackerModule.TrackStatus.IN_TRANSIT);
+                                    updateTrackerByName(rawItem.getHoverName().getString(), FreightTrackerModule.TrackStatus.DEPOT_RECEIVED);
                                 }
-                                state = State.TO_WAREHOUSE;
+                                routeToNextDelivery();
                                 return;
                             }
                         }
@@ -403,7 +389,7 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                         .filter(b -> b.getSchematicName().contains("warehouse")).findFirst().orElse(null);
                 if (warehouse != null) {
                     currentTarget = warehouse.getPosition();
-                    moveTo(currentTarget);
+                    this.walkToSafePos(currentTarget);
                     if (isAt(currentTarget)) {
                         state = State.AT_WAREHOUSE;
                         delay = 20;
@@ -423,6 +409,10 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                             for (int i = 0; i < getInventory().getSlots(); i++) {
                                 ItemStack stack = getInventory().getStackInSlot(i);
                                 if (isSafeToDump(stack)) {
+                                    if (isPackage(stack)) {
+                                        String addr = getPackageAddress(stack);
+                                        if (addr != null && addr.contains("-express;")) continue;
+                                    }
                                     toProcess.add(getInventory().extractItem(i, stack.getCount(), false));
                                 }
                             }
@@ -434,11 +424,8 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                                         ItemStack remaining = ItemHandlerHelper.insertItemStacked(handler, unpackedItem, false);
                                         int amountInserted = unpackedItem.getCount() - remaining.getCount();
                                         if (amountInserted > 0) {
-                                            if (trackingId != null) {
-                                                updateTrackerById(trackingId, FreightTrackerModule.TrackStatus.COMPLETED);
-                                            } else {
-                                                updateTracker(unpackedItem.getHoverName().getString(), amountInserted, FreightTrackerModule.TrackStatus.COMPLETED);
-                                            }
+                                            if (trackingId != null) updateTrackerById(trackingId, FreightTrackerModule.TrackStatus.COMPLETED);
+                                            else updateTracker(unpackedItem.getHoverName().getString(), amountInserted, FreightTrackerModule.TrackStatus.COMPLETED);
                                         }
                                         if (!remaining.isEmpty()) ItemHandlerHelper.insertItemStacked(getInventory(), remaining, false);
                                     }
@@ -451,17 +438,62 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                     }
                 }
 
-                if (!hasWorkItemsInInventory()) {
-                    clearHand();
-                    if (activeRole == PackerAgentJob.PackerRole.GENERAL_DUTY) {
-                        state = State.TO_DEPOT_EXCESS;
-                    } else {
-                        state = State.IDLE;
-                        delay = 40;
+                routeToNextDelivery();
+                break;
+
+            case TO_EXPRESS_DELIVERY:
+                if (currentTarget != null) {
+                    this.walkToSafePos(currentTarget);
+                    if (isAt(currentTarget)) {
+                        state = State.AT_EXPRESS_DELIVERY;
+                        delay = 20;
                     }
                 } else {
-                    delay = 60;
+                    routeToNextDelivery();
                 }
+                break;
+
+            case AT_EXPRESS_DELIVERY:
+                if (checkHolidayEvents()) return;
+                if (currentTarget != null && job.getColony().getWorld() != null) {
+                    BlockEntity be = job.getColony().getWorld().getBlockEntity(currentTarget);
+                    if (be != null) {
+                        IItemHandler handler = be.getLevel().getCapability(Capabilities.ItemHandler.BLOCK, be.getBlockPos(), be.getBlockState(), be, null);
+                        if (handler != null) {
+                            List<ItemStack> toProcess = new ArrayList<>();
+                            for (int i = 0; i < getInventory().getSlots(); i++) {
+                                ItemStack stack = getInventory().getStackInSlot(i);
+                                if (isSafeToDump(stack) && isPackage(stack)) {
+                                    String addr = getPackageAddress(stack);
+                                    if (addr != null && addr.contains("-express;")) {
+                                        String[] coords = addr.split(";")[1].split(",");
+                                        try {
+                                            BlockPos target = new BlockPos(Integer.parseInt(coords[0]), Integer.parseInt(coords[1]), Integer.parseInt(coords[2]));
+                                            if (target.equals(this.currentTarget)) {
+                                                toProcess.add(getInventory().extractItem(i, stack.getCount(), false));
+                                            }
+                                        } catch (Exception ignored) {}
+                                    }
+                                }
+                            }
+
+                            for (ItemStack stack : toProcess) {
+                                String trackingId = getTrackingId(stack);
+                                for (ItemStack unpackedItem : unpack(stack)) {
+                                    ItemStack remaining = ItemHandlerHelper.insertItemStacked(handler, unpackedItem, false);
+                                    int amountInserted = unpackedItem.getCount() - remaining.getCount();
+                                    if (amountInserted > 0) {
+                                        if (trackingId != null) updateTrackerById(trackingId, FreightTrackerModule.TrackStatus.COMPLETED);
+                                        else updateTracker(unpackedItem.getHoverName().getString(), amountInserted, FreightTrackerModule.TrackStatus.COMPLETED);
+                                    }
+                                    if (!remaining.isEmpty()) ItemHandlerHelper.insertItemStacked(getInventory(), remaining, false);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                routeToNextDelivery();
                 break;
         }
     }
@@ -476,7 +508,8 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
             case TO_DEPOT_EXCESS:
                 if (job.getWorkBuilding() != null) {
                     currentTarget = job.getWorkBuilding().getPosition();
-                    moveTo(currentTarget);
+                    this.walkToSafePos(currentTarget);
+
                     if (isAt(currentTarget)) {
                         state = State.AT_DEPOT_EXCESS;
                         delay = 20;
@@ -561,7 +594,8 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
             case TO_DEPOT_EXPORT:
                 if (job.getWorkBuilding() != null) {
                     currentTarget = job.getWorkBuilding().getPosition();
-                    moveTo(currentTarget);
+                    this.walkToSafePos(currentTarget);
+
                     if (isAt(currentTarget)) {
                         state = State.AT_DEPOT_EXPORT;
                         delay = 20;
@@ -616,7 +650,8 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                 if (parkedTrain != null) {
                     currentTarget = findSafePlatformSpot(parkedTrain);
                     if (currentTarget != null) {
-                        moveTo(currentTarget);
+                        this.walkToSafePos(currentTarget);
+
                         if (isAt(currentTarget)) {
                             state = State.AT_TRAIN_UNLOAD;
                             delay = 20;
@@ -707,7 +742,8 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
 
             case TO_EXPRESS_DELIVERY:
                 if (currentTarget != null) {
-                    moveTo(currentTarget);
+                    this.walkToSafePos(currentTarget);
+
                     if (isAt(currentTarget)) {
                         state = State.AT_EXPRESS_DELIVERY;
                         delay = 20;
@@ -768,7 +804,8 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
             case TO_DEPOT_DROP:
                 if (job.getWorkBuilding() != null) {
                     currentTarget = job.getWorkBuilding().getPosition();
-                    moveTo(currentTarget);
+                    this.walkToSafePos(currentTarget);
+
                     if (isAt(currentTarget)) {
                         state = State.AT_DEPOT_DROP;
                         delay = 10;
@@ -823,7 +860,8 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
             case TO_DEPOT_PICKUP:
                 if (job.getWorkBuilding() != null) {
                     currentTarget = job.getWorkBuilding().getPosition();
-                    moveTo(currentTarget);
+                    this.walkToSafePos(currentTarget);
+
                     if (isAt(currentTarget)) {
                         state = State.AT_DEPOT_PICKUP;
                         delay = 10;
@@ -861,7 +899,7 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
                 if (trainToLoad != null) {
                     currentTarget = findSafePlatformSpot(trainToLoad);
                     if (currentTarget != null) {
-                        moveTo(currentTarget);
+                        this.walkToSafePos(currentTarget);
                         if (isAt(currentTarget)) {
                             state = State.AT_TRAIN_LOAD;
                             delay = 20;
@@ -904,7 +942,7 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
     private void tickIdle() {
         if (job.getWorkBuilding() != null) {
             if (delay <= 0) {
-                moveTo(job.getWorkBuilding().getPosition().offset(job.getColony().getWorld().random.nextInt(5) - 2, 0, job.getColony().getWorld().random.nextInt(5) - 2));
+                this.walkToSafePos(job.getWorkBuilding().getPosition().offset(job.getColony().getWorld().random.nextInt(5) - 2, 0, job.getColony().getWorld().random.nextInt(5) - 2));
                 delay = 100;
             }
         }
@@ -1083,6 +1121,55 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
         }
     }
 
+    private void routeToNextDelivery() {
+        String myColonyName = "";
+        if (job.getWorkBuilding() != null && job.getColony().getWorld() != null) {
+            BlockEntity mainBE = job.getColony().getWorld().getBlockEntity(job.getWorkBuilding().getPosition());
+            if (mainBE instanceof FreightDepotBlockEntity fbe) {
+                myColonyName = fbe.getColonyName();
+            }
+        }
+
+        for (int i = 0; i < getInventory().getSlots(); i++) {
+            ItemStack stack = getInventory().getStackInSlot(i);
+            if (isSafeToDump(stack)) {
+                if (isPackage(stack)) {
+                    String address = getPackageAddress(stack);
+                    if (address != null && address.toLowerCase().startsWith(myColonyName.toLowerCase() + "-express;")) {
+                        String[] parts = address.split(";");
+                        if (parts.length > 1) {
+                            String[] coords = parts[1].split(",");
+                            if (coords.length == 3) {
+                                try {
+                                    this.currentTarget = new BlockPos(Integer.parseInt(coords[0]), Integer.parseInt(coords[1]), Integer.parseInt(coords[2]));
+                                    this.state = State.TO_EXPRESS_DELIVERY;
+                                    job.getCitizen().getEntity().ifPresent(entity -> entity.setItemInHand(InteractionHand.MAIN_HAND, stack.copy()));
+                                    return;
+                                } catch (NumberFormatException ignored) {}
+                            }
+                        }
+                    }
+                }
+                com.minecolonies.api.colony.buildings.IBuilding warehouse = job.getColony().getServerBuildingManager().getBuildings().values().stream()
+                        .filter(b -> b.getSchematicName().contains("warehouse")).findFirst().orElse(null);
+
+                if (warehouse != null) {
+                    this.currentTarget = warehouse.getPosition();
+                    this.state = State.TO_WAREHOUSE;
+                    job.getCitizen().getEntity().ifPresent(entity -> entity.setItemInHand(InteractionHand.MAIN_HAND, stack.copy()));
+                    return;
+                }
+            }
+        }
+        clearHand();
+        if (activeRole == PackerAgentJob.PackerRole.GENERAL_DUTY) {
+            state = State.TO_DEPOT_EXCESS;
+        } else {
+            state = State.IDLE;
+            delay = 40;
+        }
+    }
+
     private List<ItemStack> unpack(ItemStack stack) {
         List<ItemStack> contents = new ArrayList<>();
         HolderLookup.Provider registryAccess = job.getColony().getWorld().registryAccess();
@@ -1163,21 +1250,8 @@ public class PackerAgentAI extends AbstractEntityAIBasic<PackerAgentJob, Freight
         if (tag.contains("ActiveRole")) activeRole = PackerAgentJob.PackerRole.values()[tag.getInt("ActiveRole")];
     }
 
-    private void moveTo(BlockPos pos) {
-        if (pathCooldown > 0) {
-            pathCooldown--;
-            return;
-        }
-
-        job.getCitizen().getEntity().ifPresent(entity -> {
-            double rawSpeed = 1.0 + (CCLConfig.INSTANCE.enableSkillScaling.get() ? getSkillLevel(Skill.Athletics) * CCLConfig.INSTANCE.speedBoostPerAthletics.get() : 0);
-            double safeSpeed = Math.min(rawSpeed, 2.0);
-            entity.getNavigation().moveTo(pos.getX(), pos.getY(), pos.getZ(), safeSpeed);
-        });
-        pathCooldown = 20;
-    }
-
     private boolean isAt(BlockPos pos) {
-        return job.getCitizen().getEntity().map(e -> e.blockPosition().closerThan(pos, 3.0)).orElse(false);
+        if (this.worker == null || pos == null) return false;
+        return EntityUtils.isLivingAtSite(this.worker, pos.getX(), pos.getY(), pos.getZ(), 4);
     }
 }

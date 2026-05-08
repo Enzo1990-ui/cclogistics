@@ -37,20 +37,20 @@ public class LogisticsRequestHelper {
     }
 
     public static void processRequests(
-            IColony colony,
-            StockTickerBlockEntity ticker,
-            Set<Object> activeRequestIds,
-            Set<String> sentRequestIds,
-            Function<IRequest<?>, String> addressResolver,
-            Consumer<String> auditLogger,
-            Consumer<ItemStack> onImportSuccess,
-            TrackerUpdater trackerUpdater,
-            OrderCacher orderCacher
+            IColony colony, StockTickerBlockEntity ticker, Set<Object> activeRequestIds, Set<String> sentRequestIds,
+            Function<IRequest<?>, String> addressResolver, Consumer<String> auditLogger, Consumer<ItemStack> onImportSuccess,
+            TrackerUpdater trackerUpdater, OrderCacher orderCacher
+    ) {
+        processRequests(colony, ticker, activeRequestIds, sentRequestIds, null, addressResolver, auditLogger, onImportSuccess, trackerUpdater, orderCacher);
+    }
+
+    public static void processRequests(
+            IColony colony, StockTickerBlockEntity ticker, Set<Object> activeRequestIds, Set<String> sentRequestIds,
+            Set<String> forcedDispatchIds,
+            Function<IRequest<?>, String> addressResolver, Consumer<String> auditLogger, Consumer<ItemStack> onImportSuccess,
+            TrackerUpdater trackerUpdater, OrderCacher orderCacher
     ) {
         if (colony == null || ticker == null) return;
-
-        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] ===================================================");
-        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] CYCLE START: Fetching requests for colony ID: " + colony.getID());
 
         Map<String, IRequest<?>> liveRequests = new HashMap<>();
         IRequestManager manager = colony.getRequestManager();
@@ -58,19 +58,13 @@ public class LogisticsRequestHelper {
         try {
             if (manager instanceof IStandardRequestManager stdManager) {
                 var requestStore = stdManager.getRequestIdentitiesDataStore();
-                Collection<IRequest<?>> allRequests = requestStore.getIdentities().values();
-                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] Raw Requests found in Minecolonies API: " + allRequests.size());
-
-                for (IRequest<?> req : allRequests) {
+                for (IRequest<?> req : requestStore.getIdentities().values()) {
                     if (req.getId() != null) {
                         liveRequests.put(req.getId().toString(), req);
                     }
                 }
             }
-        } catch (Exception e) {
-            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.error("[CCL-DEBUG] CRITICAL: API Request Hook Failed!", e);
-            return;
-        }
+        } catch (Exception e) { return; }
 
         liveRequests.entrySet().removeIf(entry -> {
             IRequest<?> req = entry.getValue();
@@ -78,8 +72,6 @@ public class LogisticsRequestHelper {
             String reqClass = req.getRequester().getClass().getSimpleName().toLowerCase();
             return reqClass.contains("warehouse") || reqClass.contains("logisticscoordinator");
         });
-
-        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] Filtered Live Requests (Ignored Warehouse/Coordinator): " + liveRequests.size());
 
         if (activeRequestIds != null) {
             Set<Object> currentIds = new HashSet<>(liveRequests.keySet());
@@ -93,26 +85,83 @@ public class LogisticsRequestHelper {
             activeRequestIds.addAll(currentIds);
         }
 
-        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] Fetching Network Inventory Summary from Create/AE2...");
         List<BigItemStack> networkInv = LogisticsBridge.getNetworkInventory(ticker);
-        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] Network Inventory fetched. Unique Item Types visible: " + networkInv.size());
 
         for (Map.Entry<String, IRequest<?>> entry : liveRequests.entrySet()) {
             IRequest<?> req = entry.getValue();
             String id = entry.getKey();
 
             try {
-                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] ---------------------------------------------------");
-                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] Processing Request ID: " + id);
-
                 String targetAddress = addressResolver.apply(req);
-                if (targetAddress == null) {
-                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] -> ABORT: Target Address is null.");
-                    continue;
+                if (targetAddress == null) continue;
+
+                Object innerReq = req.getRequest();
+                if (!(innerReq instanceof IDeliverable deliverable)) continue;
+
+                int amountNeeded = deliverable.getCount();
+                if (amountNeeded <= 0) amountNeeded = 1;
+
+                ItemStack itemToSend = ItemStack.EMPTY;
+                ItemStack exactGuess = deliverable.getResult();
+
+                if (exactGuess != null && !exactGuess.isEmpty() && deliverable.matches(exactGuess)) {
+                    itemToSend = exactGuess.copy();
+                    itemToSend.setCount(1);
+                } else {
+                    for (BigItemStack bis : networkInv) {
+                        if (bis.stack.isEmpty()) continue;
+                        if (deliverable.matches(bis.stack)) {
+                            itemToSend = bis.stack.copy();
+                            itemToSend.setCount(1);
+                            break;
+                        }
+                    }
                 }
 
+                if (innerReq instanceof Food && !itemToSend.isEmpty()) {
+                    amountNeeded = itemToSend.getMaxStackSize();
+                }
+
+                String missingName = "Unknown Item";
+                if (!itemToSend.isEmpty()) {
+                    missingName = itemToSend.getHoverName().getString();
+                } else if (deliverable instanceof com.minecolonies.api.colony.requestsystem.requestable.Stack stackReq && !stackReq.getStack().isEmpty()) {
+                    missingName = stackReq.getStack().getHoverName().getString();
+                } else if (deliverable instanceof com.minecolonies.api.colony.requestsystem.requestable.RequestTag tagReq) {
+                    String path = tagReq.getTag().location().getPath().replace("_", " ");
+                    missingName = "Any " + path.substring(0, 1).toUpperCase() + path.substring(1);
+                } else if (deliverable instanceof Tool toolReq) {
+                    try {
+                        if (toolReq.getEquipmentType() != null) {
+                            String tName = toolReq.getEquipmentType().toString();
+                            missingName = (tName.equalsIgnoreCase("any") || tName.equalsIgnoreCase("none")) ? "Any Tool" : "Any " + tName.substring(0, 1).toUpperCase() + tName.substring(1).toLowerCase();
+                        }
+                    } catch (Exception ignored) {}
+                } else if (deliverable instanceof Food) {
+                    missingName = "Food / Edibles";
+                }
+                int exactStockAvailable = 0;
+                if (!itemToSend.isEmpty()) {
+                    BigItemStack stockCheck = LogisticsBridge.checkStock(ticker, itemToSend, null);
+                    if (stockCheck != null && stockCheck.count > 0) {
+                        exactStockAvailable = stockCheck.count;
+                    } else {
+                        for (BigItemStack bis : networkInv) {
+                            if (bis.stack.isEmpty()) continue;
+                            if (ItemStack.isSameItemSameComponents(bis.stack, itemToSend)) {
+                                exactStockAvailable += bis.count;
+                            }
+                        }
+                    }
+                }
+
+                int maxPackageCapacity = itemToSend.isEmpty() ? 64 * 9 : itemToSend.getMaxStackSize() * 9;
+                if (amountNeeded > maxPackageCapacity) amountNeeded = maxPackageCapacity;
                 if (req.canBeDelivered()) {
-                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] -> ABORT: Request canBeDelivered() is true. Ignoring.");
+                    if (trackerUpdater != null) {
+                        String courierMessage = getCourierStatus(colony, req.getId());
+                        trackerUpdater.track(id, missingName, amountNeeded, FreightTrackerModule.TrackStatus.DELIVERING, courierMessage);
+                    }
                     continue;
                 }
 
@@ -129,174 +178,123 @@ public class LogisticsRequestHelper {
                             String checkString = requesterBuilding.getBuildingDisplayName() + ";" + requesterBuilding.getID();
                             if (expressModule.isExpressEnabled(checkString)) {
                                 targetAddress = targetAddress + "-express;" + requesterPos.getX() + "," + requesterPos.getY() + "," + requesterPos.getZ();
-                                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] -> ROUTING: Upgraded to EXPRESS Delivery: " + targetAddress);
                             }
                         }
                     }
-                } catch (Exception e) {
-                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.error("[CCL-DEBUG] Failed to parse Express routing", e);
-                }
+                } catch (Exception ignored) {}
 
-                String type = req.getClass().getSimpleName();
-                if (type.contains("DeliveryRequest")) {
-                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] -> ABORT: Is a DeliveryRequest (Not a fetch request).");
-                    continue;
-                }
+                if (req.getClass().getSimpleName().contains("DeliveryRequest")) continue;
+                if (sentRequestIds != null && sentRequestIds.contains(id)) continue;
 
-                Object innerReq = req.getRequest();
-                if (!(innerReq instanceof IDeliverable deliverable)) {
-                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] -> ABORT: Inner request is not an IDeliverable.");
-                    continue;
-                }
+                boolean forceDispatch = forcedDispatchIds != null && forcedDispatchIds.contains(id);
+                boolean colonyCanResolve = false;
+                boolean activelyCrafting = req.hasChildren();
 
-                int amountNeeded = deliverable.getCount();
-                if (amountNeeded <= 0) amountNeeded = 1;
-                ItemStack itemToSend = ItemStack.EMPTY;
-
-                ItemStack exactGuess = deliverable.getResult();
-                if (exactGuess != null && !exactGuess.isEmpty() && deliverable.matches(exactGuess)) {
-                    itemToSend = exactGuess.copy();
-                    itemToSend.setCount(1);
-                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] -> Token Fast-Path: Identified item as " + itemToSend.getHoverName().getString());
-                } else {
-                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] -> Token Slow-Path: Iterating network inventory to find match...");
-                    for (BigItemStack bis : networkInv) {
-                        if (bis.stack.isEmpty()) continue;
-                        if (deliverable.matches(bis.stack)) {
-                            itemToSend = bis.stack.copy();
-                            itemToSend.setCount(1);
-                            if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] -> Token Slow-Path SUCCESS: Found match: " + itemToSend.getHoverName().getString());
-                            break;
+                if (!forceDispatch) {
+                    if (activelyCrafting) {
+                        colonyCanResolve = true;
+                    } else {
+                        boolean allowedToBeCrafted = true;
+                        if (deliverable instanceof com.minecolonies.api.colony.requestsystem.requestable.Stack stackReq) {
+                            allowedToBeCrafted = stackReq.canBeResolvedByBuilding();
+                        }
+                        if (allowedToBeCrafted) {
+                            colonyCanResolve = canColonyCraft(colony, deliverable, missingName);
                         }
                     }
                 }
 
-                if (itemToSend.isEmpty()) {
-                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.warn("[CCL-DEBUG] -> ITEM NOT FOUND: Could not resolve a physical item for this request.");
-
-                    if (exactGuess != null && !exactGuess.isEmpty() && canColonyCraft(exactGuess) && deliverable.canBeResolvedByBuilding()) {
-                        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] -> The colony can craft this missing item natively. Silently aborting.");
-                        continue;
-                    }
-
-                    String missingName = "Requested Item";
-                    if (deliverable instanceof com.minecolonies.api.colony.requestsystem.requestable.Stack stackReq && !stackReq.getStack().isEmpty()) {
-                        missingName = stackReq.getStack().getHoverName().getString();
-                    } else if (deliverable instanceof com.minecolonies.api.colony.requestsystem.requestable.RequestTag tagReq) {
-                        missingName = "Any " + tagReq.getTag().location().getPath();
-                    } else if (deliverable instanceof Tool toolReq) {
-                        missingName = "Requested Tool";
-                        try {
-                            if (toolReq.getEquipmentType() != null) missingName = "Any " + toolReq.getEquipmentType().toString();
-                        } catch (Exception ignored) {}
-                    } else if (deliverable instanceof Food) {
-                        missingName = "Food / Edibles";
-                    }
-
-                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] -> Updating Tracker: NO STOCK for " + missingName);
+                if (colonyCanResolve) {
                     if (trackerUpdater != null) {
-                        trackerUpdater.track(id, missingName, amountNeeded, FreightTrackerModule.TrackStatus.NO_STOCK, null);
+                        String overrideMsg = (exactStockAvailable >= amountNeeded) ? "Colony Crafting [In Stock]" : "Colony Crafting";
+                        trackerUpdater.track(id, missingName, amountNeeded, FreightTrackerModule.TrackStatus.PROCESSING, overrideMsg);
                     }
                     continue;
                 }
-
-                if (innerReq instanceof Food) {
-                    amountNeeded = itemToSend.getMaxStackSize();
-                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] -> Request is FOOD. Adjusted amountNeeded to full stack: " + amountNeeded);
-                }
-
-                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] -> Target Item: " + itemToSend.getHoverName().getString() + " | Needed: " + amountNeeded);
-
-                int exactStockAvailable = 0;
-                boolean usedDirectStock = false;
-
-                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] -> Querying LogisticsBridge.checkStock() for direct AE2 reading...");
-                BigItemStack stockCheck = LogisticsBridge.checkStock(ticker, itemToSend, null);
-
-                if (stockCheck != null) {
-                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] -> LogisticsBridge.checkStock() returned: " + stockCheck.count);
-                    if (stockCheck.count > 0) {
-                        exactStockAvailable = stockCheck.count;
-                        usedDirectStock = true;
-                    }
-                } else {
-                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.warn("[CCL-DEBUG] -> LogisticsBridge.checkStock() returned NULL!");
-                }
-
-                if (!usedDirectStock) {
-                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] -> Direct check failed or returned 0. Running fallback loop over truncated inventory...");
-                    for (BigItemStack bis : networkInv) {
-                        if (bis.stack.isEmpty()) continue;
-                        if (ItemStack.isSameItemSameComponents(bis.stack, itemToSend)) {
-                            exactStockAvailable += bis.count;
-                        }
-                    }
-                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] -> Fallback loop concluded. Found: " + exactStockAvailable);
-                }
-
-                int maxPackageCapacity = itemToSend.getMaxStackSize() * 9;
-                if (amountNeeded > maxPackageCapacity) {
-                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] -> Amount needed (" + amountNeeded + ") exceeds package capacity. Capping to: " + maxPackageCapacity);
-                    amountNeeded = maxPackageCapacity;
-                }
-
-                if (sentRequestIds != null && sentRequestIds.contains(id)) {
-                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] -> ABORT: Request ID already in sentRequestIds. Skipping.");
+                if (itemToSend.isEmpty()) {
+                    if (trackerUpdater != null) trackerUpdater.track(id, missingName, amountNeeded, FreightTrackerModule.TrackStatus.NO_STOCK, "No Stock");
                     continue;
                 }
-
-                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] -> Final Stock Assessment: Needed=" + amountNeeded + ", Available=" + exactStockAvailable);
 
                 if (exactStockAvailable >= amountNeeded) {
-                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] -> SUCCESS: Sufficient stock found! Initiating shipment...");
-
                     if (orderCacher != null) {
                         orderCacher.cacheOrder(itemToSend.copy(), amountNeeded, targetAddress, id);
-                        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] -> Shipped via orderCacher.");
                     } else {
-                        boolean success = LogisticsBridge.sendPackage(ticker, itemToSend.copy(), amountNeeded, targetAddress, null);
-                        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] -> Shipped via LogisticsBridge.sendPackage(). Success: " + success);
+                        ItemStack finalItem = itemToSend.copy();
+                        net.minecraft.world.item.component.CustomData.update(net.minecraft.core.component.DataComponents.CUSTOM_DATA, finalItem, tag -> {
+                            tag.putString("cclogistics:tracking_id", id);
+                        });
+
+                        boolean success = LogisticsBridge.sendPackage(ticker, finalItem, amountNeeded, targetAddress, null);
                         if (success) {
-                            if (onImportSuccess != null) onImportSuccess.accept(itemToSend.copy());
-                            if (auditLogger != null) auditLogger.accept("IN;Imported " + amountNeeded + "x " + itemToSend.getHoverName().getString());
+                            if (onImportSuccess != null) onImportSuccess.accept(finalItem);
+                            if (auditLogger != null) auditLogger.accept("IN;Imported " + amountNeeded + "x " + finalItem.getHoverName().getString());
                         }
                     }
 
                     if (sentRequestIds != null) sentRequestIds.add(id);
-                    if (trackerUpdater != null) trackerUpdater.track(id, itemToSend.getHoverName().getString(), amountNeeded, FreightTrackerModule.TrackStatus.ACCEPTED, orderCacher != null ? "Awaiting Coordinator" : "Requested");
-
-                } else {
-                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] -> FAILURE: Not enough stock.");
-
-                    if (canColonyCraft(itemToSend) && deliverable.canBeResolvedByBuilding()) {
-                        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] -> The colony can craft this item natively. Silently aborting to let Crafters handle it.");
-                        continue;
+                    if (trackerUpdater != null) {
+                        FreightTrackerModule.TrackStatus sentStatus = orderCacher != null ? FreightTrackerModule.TrackStatus.AWAITING_COORDINATOR : FreightTrackerModule.TrackStatus.DISPATCHED;
+                        trackerUpdater.track(id, missingName, amountNeeded, sentStatus, orderCacher != null ? "Awaiting Coordinator" : "Dispatched");
                     }
 
+                } else {
                     String msg = (exactStockAvailable == 0) ? "No Stock" : (amountNeeded - exactStockAvailable) + " Missing";
-                    if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] -> Updating Tracker: " + msg);
-                    if (trackerUpdater != null) trackerUpdater.track(id, itemToSend.getHoverName().getString(), amountNeeded, FreightTrackerModule.TrackStatus.NO_STOCK, msg);
+                    if (trackerUpdater != null) trackerUpdater.track(id, missingName, amountNeeded, FreightTrackerModule.TrackStatus.NO_STOCK, msg);
                 }
 
             } catch (Exception e) {
-                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.error("[CCL-DEBUG] CRITICAL: Unhandled exception processing request ID: " + id, e);
+                if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.error("[CCL-DEBUG] Unhandled exception processing request", e);
             }
         }
-        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] CYCLE COMPLETE.");
-        if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.LOGISTICS)) LOGGER.info("[CCL-DEBUG] ===================================================");
     }
 
-    private static boolean canColonyCraft(ItemStack stack) {
-        if (stack.isEmpty()) return false;
-        if (stack.getMaxDamage() > 0 || !stack.isStackable()) return false;
+    private static String getCourierStatus(IColony colony, com.minecolonies.api.colony.requestsystem.token.IToken<?> requestToken) {
+        try {
+            IRequestManager manager = colony.getRequestManager();
+            com.minecolonies.api.colony.requestsystem.resolver.IRequestResolver<?> resolver = manager.getResolverForRequest(requestToken);
+
+            if (resolver != null) {
+                com.minecolonies.api.colony.requestsystem.token.IToken<?> courierToken = resolver.getId();
+                com.minecolonies.api.colony.requestsystem.data.IRequestSystemDeliveryManJobDataStore deliveryStore =
+                        manager.getDataStoreManager().get(
+                                courierToken,
+                                com.google.common.reflect.TypeToken.of(com.minecolonies.api.colony.requestsystem.data.IRequestSystemDeliveryManJobDataStore.class)
+                        );
+
+                if (deliveryStore != null) {
+                    if (deliveryStore.getOngoingDeliveries() != null && deliveryStore.getOngoingDeliveries().contains(requestToken)) {
+                        return "Courier is delivering now!";
+                    }
+                    if (deliveryStore.getQueue() != null) {
+                        int stops = 0;
+                        for (com.minecolonies.api.colony.requestsystem.token.IToken<?> queuedToken : deliveryStore.getQueue()) {
+                            stops++;
+                            if (queuedToken.equals(requestToken)) {
+                                return "Courier En Route (" + stops + (stops == 1 ? " stop away)" : " stops away)");
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return "Courier En Route";
+    }
+
+    private static boolean canColonyCraft(IColony colony, IDeliverable deliverable, String missingName) {
+        if (colony == null || deliverable == null) return false;
+
         try {
             var recipes = com.minecolonies.api.colony.IColonyManager.getInstance().getRecipeManager().getRecipes();
             for (Object storageObj : recipes.values()) {
                 if (storageObj instanceof com.minecolonies.api.crafting.IRecipeStorage storage) {
-                    if (storage.getPrimaryOutput() != null && storage.getPrimaryOutput().getItem() == stack.getItem()) return true;
+                    ItemStack primary = storage.getPrimaryOutput();
+                    if (primary != null && !primary.isEmpty()) {
+                        if (deliverable.matches(primary)) return true;
+                    }
                     if (storage.getAlternateOutputs() != null) {
                         for (ItemStack alt : storage.getAlternateOutputs()) {
-                            if (alt != null && alt.getItem() == stack.getItem()) return true;
+                            if (alt != null && !alt.isEmpty() && deliverable.matches(alt)) return true;
                         }
                     }
                 }

@@ -14,16 +14,24 @@ import java.util.concurrent.ConcurrentHashMap;
 public class FreightTrackerModule extends AbstractBuildingModule implements IPersistentModule {
 
     public enum TrackStatus {
-        REQUESTED("§e[Requested]"),
-        RECEIVED("§e[Ticker Received]"),
-        ACCEPTED("§a[En Route]"),
-        IN_TRANSIT("§b[Depot Received]"),
-        DELIVERING("§d[Delivering]"),
-        NO_STOCK("§c[Out of Stock]"),
-        COMPLETED("§2[Complete]");
+        NO_STOCK("§8[No Stock]"),
+        AWAITING_COORDINATOR("§4[Awaiting Coordinator]"),
+        PROCESSING("§5[Processing Order]"),
+        DISPATCHED("§1[Funnel Dispatched]"),
+        ON_TRAIN("§3[In Transit]"),
+        DEPOT_RECEIVED("§9[Arrived at Depot]"),
+        DELIVERING("§6[Out for Delivery]"),
+        COMPLETED("§2[Delivered]");
 
-        public final String display;
-        TrackStatus(String display) { this.display = display; }
+        private final String displayName;
+
+        TrackStatus(String displayName) {
+            this.displayName = displayName;
+        }
+
+        public String getDisplayName() {
+            return displayName;
+        }
     }
 
     public static class TrackedReq {
@@ -97,7 +105,7 @@ public class FreightTrackerModule extends AbstractBuildingModule implements IPer
 
     @Override
     public void serializeNBT(HolderLookup.Provider provider, CompoundTag tag) {
-        tag.putBoolean("FormatPurgedV2", isPurgedV2);
+        tag.putBoolean("FormatPurgedV3", isPurgedV2);
         ListTag list = new ListTag();
         for (Map.Entry<String, TrackedReq> e : requests.entrySet()) {
             CompoundTag t = new CompoundTag();
@@ -110,18 +118,18 @@ public class FreightTrackerModule extends AbstractBuildingModule implements IPer
             t.putBoolean("IsIncoming", e.getValue().isIncoming);
             list.add(t);
         }
-        tag.put("TrackerV2", list);
+        tag.put("TrackerV3", list);
     }
 
     @Override
     public void deserializeNBT(HolderLookup.Provider provider, CompoundTag tag) {
-        if (!tag.getBoolean("FormatPurgedV2")) {
+        if (!tag.getBoolean("FormatPurgedV3")) {
             purgeOldLogs();
             return;
         }
-        isPurgedV2 = tag.getBoolean("FormatPurgedV2");
-        if (tag.contains("TrackerV2")) {
-            ListTag list = tag.getList("TrackerV2", Tag.TAG_COMPOUND);
+        isPurgedV2 = tag.getBoolean("FormatPurgedV3");
+        if (tag.contains("TrackerV3")) {
+            ListTag list = tag.getList("TrackerV3", Tag.TAG_COMPOUND);
             requests.clear();
             for (int i=0; i<list.size(); i++) {
                 CompoundTag t = list.getCompound(i);
@@ -132,7 +140,7 @@ public class FreightTrackerModule extends AbstractBuildingModule implements IPer
                 if (statIdx >= 0 && statIdx < TrackStatus.values().length) {
                     r.status = TrackStatus.values()[statIdx];
                 } else {
-                    r.status = TrackStatus.REQUESTED;
+                    r.status = TrackStatus.NO_STOCK;
                 }
 
                 if (t.contains("Over")) r.override = t.getString("Over");

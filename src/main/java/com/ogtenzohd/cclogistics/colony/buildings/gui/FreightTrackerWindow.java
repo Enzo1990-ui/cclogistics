@@ -100,6 +100,7 @@ public class FreightTrackerWindow extends AbstractModuleWindow<FreightTrackerMod
                 Text statusText = rowPane.findPaneOfTypeByID("statusText", Text.class);
 
                 Button btnDelete = rowPane.findPaneOfTypeByID("btnDelete", Button.class);
+                Button btnDispatch = rowPane.findPaneOfTypeByID("btnDispatch", Button.class);
 
                 if (btnDelete != null) {
                     btnDelete.setHandler(btn -> {
@@ -108,31 +109,54 @@ public class FreightTrackerWindow extends AbstractModuleWindow<FreightTrackerMod
                     });
                 }
 
+                if (btnDispatch != null) {
+                    boolean canForceSend = req.override != null && req.override.contains("[In Stock]");
+
+                    if (req.isIncoming && canForceSend) {
+                        btnDispatch.show();
+                        btnDispatch.setEnabled(true);
+                        btnDispatch.setText(net.minecraft.network.chat.Component.literal("§aSend"));
+
+                        btnDispatch.setHandler(btn -> {
+                            BlockPos pos = moduleView.getBuildingView().getPosition();
+                            net.neoforged.neoforge.network.PacketDistributor.sendToServer(new com.ogtenzohd.cclogistics.network.ForceDispatchPacket(pos, trackingId));
+
+                            btnDispatch.setText(net.minecraft.network.chat.Component.literal("§7..."));
+                            btnDispatch.setEnabled(false);
+                        });
+                    } else {
+                        btnDispatch.hide();
+                    }
+                }
+
                 if (itemText != null && statusText != null) {
                     String rawName = (req.itemName != null && !req.itemName.isEmpty()) ? req.itemName : "Loading...";
                     itemText.setText(Component.literal(req.amount + "x " + rawName).withStyle(net.minecraft.ChatFormatting.BLACK));
 
                     String symbol = "• ";
-                    String statusStr = req.status.display;
+
+                    String statusStr = req.status.getDisplayName();
 
                     if (req.override != null && !req.override.isEmpty() && req.status != FreightTrackerModule.TrackStatus.COMPLETED) {
                         statusStr = "§7[" + req.override + "]";
                     }
 
-                    if (statusStr.contains("Out of Stock")) {
-                        symbol = "§c✖ ";
-                    } else if (statusStr.contains("Complete")) {
+                    if (statusStr.contains("No Stock")) {
+                        symbol = "§8✖ ";
+                    } else if (statusStr.contains("Delivered")) {
                         symbol = "§2✔ ";
-                    } else if (statusStr.contains("Delivering")) {
-                        symbol = "§d➔ ";
-                    } else if (statusStr.contains("Depot Received")) {
-                        symbol = "§1📦 ";
-                    } else if (statusStr.contains("En Route")) {
+                    } else if (statusStr.contains("Out for Delivery")) {
+                        symbol = "§6➔ ";
+                    } else if (statusStr.contains("Arrived at Depot")) {
+                        symbol = "§9📦 ";
+                    } else if (statusStr.contains("Transit")) {
                         symbol = "§3🚂 ";
-                    } else if (statusStr.contains("Ticker Received")) {
-                        symbol = "§6📥 ";
-                    } else if (statusStr.contains("Requested")) {
-                        symbol = "§6⏳ ";
+                    } else if (statusStr.contains("Dispatched")) {
+                        symbol = "§1📤 ";
+                    } else if (statusStr.contains("Processing")) {
+                        symbol = "§5⚙ ";
+                    } else if (statusStr.contains("Awaiting")) {
+                        symbol = "§4⏳ ";
                     }
 
                     statusText.setText(Component.literal(symbol + statusStr));

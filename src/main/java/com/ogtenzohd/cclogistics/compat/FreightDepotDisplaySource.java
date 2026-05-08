@@ -48,14 +48,8 @@ public class FreightDepotDisplaySource extends DisplaySource {
 
     private String formatStatus(FreightTrackerModule.TrackStatus status) {
         if (status == null) return "Unknown";
-        switch(status) {
-            case REQUESTED: return "Requested";
-            case ACCEPTED: return "Dispatched";
-            case DELIVERING: return "En Route";
-            case NO_STOCK: return "No Stock";
-            case IN_TRANSIT: return "In Transit";
-            default: return status.name();
-        }
+        String rawName = status.getDisplayName();
+        return rawName.replaceAll("§.", "").replace("[", "").replace("]", "");
     }
 
     @Override

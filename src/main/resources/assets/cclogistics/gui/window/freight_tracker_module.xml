@@ -9,10 +9,12 @@
 
     <list id="requestList" size="170 170" pos="10 50">
         <box size="100% 26" linewidth="1">
-            <text id="requestText" size="145 10" pos="2 2" color="black" textscale="0.8"/>
-            <text id="statusText" size="145 10" pos="2 14" color="black" textscale="0.8"/>
+            <text id="requestText" size="140 10" pos="2 2" color="black" textscale="0.8"/>
+            <text id="statusText" size="130 10" pos="2 14" color="black" textscale="0.8"/>
 
-            <button id="btnDelete" label="X" size="10 10" pos="150 2" color="dark_red" source="minecolonies:textures/gui/builderhut/builder_button_small.png" />
+            <button id="btnDelete" label="X" size="10 10" pos="155 2" color="dark_red" source="minecolonies:textures/gui/builderhut/builder_button_small.png" />
+
+            <button id="btnDispatch" label="Send" size="25 10" pos="140 14" source="minecolonies:textures/gui/builderhut/builder_button_small.png" />
         </box>
     </list>
 

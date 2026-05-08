@@ -6,6 +6,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.item.ItemStack;
@@ -13,14 +15,13 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.items.IItemHandler;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 
 public class FreightScannerBlockEntity extends BeltTunnelBlockEntity {
 
-    // keep track of UUIDs we've already scanned so it doesn't beep 50 times while the box is moving!
-    private final Set<String> recentlyScanned = new HashSet<>();
-    private int cooldown = 0;
+    private final Map<String, Integer> activeScans = new HashMap<>();
     private BlockPos linkedDepot = null;
 
     public FreightScannerBlockEntity(BlockPos pos, BlockState state) {
@@ -32,12 +33,18 @@ public class FreightScannerBlockEntity extends BeltTunnelBlockEntity {
         super.tick();
 
         if (level == null || level.isClientSide) return;
-        if (cooldown > 0) {
-            cooldown--;
-            if (cooldown == 0) {
-                recentlyScanned.clear();
+
+        Iterator<Map.Entry<String, Integer>> it = activeScans.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<String, Integer> entry = it.next();
+            int ticksLeft = entry.getValue() - 1;
+            if (ticksLeft <= 0) {
+                it.remove();
+            } else {
+                entry.setValue(ticksLeft);
             }
         }
+
         IItemHandler inventory = level.getCapability(Capabilities.ItemHandler.BLOCK, worldPosition.below(), Direction.UP);
 
         if (inventory != null) {
@@ -47,15 +54,15 @@ public class FreightScannerBlockEntity extends BeltTunnelBlockEntity {
                 if (isPackage(stack)) {
                     String trackingId = getTrackingId(stack);
 
-                    if (trackingId != null && !recentlyScanned.contains(trackingId)) {
-                        recentlyScanned.add(trackingId);
-                        cooldown = 5;
+                    if (trackingId != null && !activeScans.containsKey(trackingId)) {
+                        activeScans.put(trackingId, 20);
+
                         level.playSound(null, getBlockPos(), SoundEvents.UI_BUTTON_CLICK.value(), SoundSource.BLOCKS, 1.0F, 2.0F);
 
                         if (linkedDepot != null && level.getBlockEntity(linkedDepot) instanceof com.ogtenzohd.cclogistics.blocks.custom.freight_depot.FreightDepotBlockEntity depotBE) {
                             depotBE.updateTrackerByTrackingId(
                                     trackingId,
-                                    com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackStatus.IN_TRANSIT,
+                                    com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackStatus.ON_TRAIN,
                                     "Leaving Warehouse"
                             );
                         }
@@ -81,6 +88,33 @@ public class FreightScannerBlockEntity extends BeltTunnelBlockEntity {
                 }
             }
         } catch (Exception ignored) {}
+        if (level != null) {
+            try {
+                HolderLookup.Provider registryAccess = level.registryAccess();
+                Tag tag = stack.save(registryAccess);
+                if (tag instanceof CompoundTag root && root.contains("components")) {
+                    CompoundTag comps = root.getCompound("components");
+                    if (comps.contains("create:package_contents")) {
+                        ListTag itemList = comps.getList("create:package_contents", Tag.TAG_COMPOUND);
+                        for (int i = 0; i < itemList.size(); i++) {
+                            CompoundTag entry = itemList.getCompound(i);
+                            if (entry.contains("item")) {
+                                ItemStack parsed = ItemStack.parse(registryAccess, entry.getCompound("item")).orElse(ItemStack.EMPTY);
+                                if (!parsed.isEmpty()) {
+                                    net.minecraft.world.item.component.CustomData innerData = parsed.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
+                                    if (innerData != null) {
+                                        CompoundTag innerNbt = innerData.copyTag();
+                                        if (innerNbt.contains("cclogistics:tracking_id")) {
+                                            return innerNbt.getString("cclogistics:tracking_id");
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
         return null;
     }
 

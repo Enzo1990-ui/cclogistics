@@ -17,8 +17,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.items.IItemHandler;
 
-import java.util.UUID;
-
 public class LogisticsFunnelBlockEntity extends FunnelBlockEntity {
 
     private BlockPos linkedDepot = null;
@@ -59,18 +57,19 @@ public class LogisticsFunnelBlockEntity extends FunnelBlockEntity {
                             if (packageAddress.equals(depotBE.getColonyName())) {
                                 trackingId = depotBE.getPendingMinecoloniesId(itemName);
                             }
-                            if (trackingId == null) {
-                                trackingId = "PKG-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
-                            }
+
+                            if (trackingId == null) continue;
+
                             String finalId = trackingId;
                             CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> {
                                 tag.putString("cclogistics:tracking_id", finalId);
                             });
-                            depotBE.updateTracker(trackingId, itemName, getPrimaryItemAmount(stack), com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackStatus.ACCEPTED, "Dispached");
+
+                            depotBE.updateTracker(trackingId, itemName, getPrimaryItemAmount(stack), com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackStatus.DISPATCHED, "Dispatched");
                         }
                     } else {
                         if (linkedDepot != null && level.getBlockEntity(linkedDepot) instanceof FreightDepotBlockEntity depotBE) {
-                            depotBE.updateTrackerByTrackingId(trackingId, com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackStatus.ACCEPTED, "Dispached");
+                            depotBE.updateTrackerByTrackingId(trackingId, com.ogtenzohd.cclogistics.colony.buildings.modules.FreightTrackerModule.TrackStatus.DISPATCHED, "Dispatched");
                         }
                     }
                 }
@@ -94,6 +93,33 @@ public class LogisticsFunnelBlockEntity extends FunnelBlockEntity {
                 }
             }
         } catch (Exception ignored) {}
+        if (level != null) {
+            try {
+                HolderLookup.Provider registryAccess = level.registryAccess();
+                Tag tag = stack.save(registryAccess);
+                if (tag instanceof CompoundTag root && root.contains("components")) {
+                    CompoundTag comps = root.getCompound("components");
+                    if (comps.contains("create:package_contents")) {
+                        ListTag itemList = comps.getList("create:package_contents", Tag.TAG_COMPOUND);
+                        for (int i = 0; i < itemList.size(); i++) {
+                            CompoundTag entry = itemList.getCompound(i);
+                            if (entry.contains("item")) {
+                                ItemStack parsed = ItemStack.parse(registryAccess, entry.getCompound("item")).orElse(ItemStack.EMPTY);
+                                if (!parsed.isEmpty()) {
+                                    CustomData innerData = parsed.get(DataComponents.CUSTOM_DATA);
+                                    if (innerData != null) {
+                                        CompoundTag innerNbt = innerData.copyTag();
+                                        if (innerNbt.contains("cclogistics:tracking_id")) {
+                                            return innerNbt.getString("cclogistics:tracking_id");
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
         return null;
     }
 
