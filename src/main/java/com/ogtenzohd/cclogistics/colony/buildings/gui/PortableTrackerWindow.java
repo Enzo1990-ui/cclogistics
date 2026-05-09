@@ -25,7 +25,11 @@ public class PortableTrackerWindow extends BOWindow {
 
     private final Button btnIncoming;
     private final Button btnOutgoing;
+    private final Button tabAll;
+    private final Button tabNoStock;
+    private final Button tabTransit;
     private boolean viewingIncoming = true;
+    private int activeTab = 0;
 
     public PortableTrackerWindow(FreightTrackerModuleView moduleView) {
         super(ResourceLocation.fromNamespaceAndPath("cclogistics", "gui/window/freight_tracker_module.xml"));
@@ -34,6 +38,9 @@ public class PortableTrackerWindow extends BOWindow {
         this.requestList = this.findPaneOfTypeByID("requestList", ScrollingList.class);
         this.btnIncoming = this.findPaneOfTypeByID("btnIncoming", Button.class);
         this.btnOutgoing = this.findPaneOfTypeByID("btnOutgoing", Button.class);
+        this.tabAll = this.findPaneOfTypeByID("tabAll", Button.class);
+        this.tabNoStock = this.findPaneOfTypeByID("tabNoStock", Button.class);
+        this.tabTransit = this.findPaneOfTypeByID("tabTransit", Button.class);
 
         Button btnPrintClipboard = this.findPaneOfTypeByID("btnPrintClipboard", Button.class);
         if (btnPrintClipboard != null) {
@@ -42,6 +49,9 @@ public class PortableTrackerWindow extends BOWindow {
 
         if (this.btnIncoming != null) this.btnIncoming.setHandler(this::onIncomingClicked);
         if (this.btnOutgoing != null) this.btnOutgoing.setHandler(this::onOutgoingClicked);
+        if (this.tabAll != null) this.tabAll.setHandler(btn -> { activeTab = 0; updateButtonStates(); updateList(); });
+        if (this.tabNoStock != null) this.tabNoStock.setHandler(btn -> { activeTab = 1; updateButtonStates(); updateList(); });
+        if (this.tabTransit != null) this.tabTransit.setHandler(btn -> { activeTab = 2; updateButtonStates(); updateList(); });
 
         updateButtonStates();
         updateList();
@@ -64,6 +74,9 @@ public class PortableTrackerWindow extends BOWindow {
     private void updateButtonStates() {
         if (btnIncoming != null) btnIncoming.setEnabled(!viewingIncoming);
         if (btnOutgoing != null) btnOutgoing.setEnabled(viewingIncoming);
+        if (tabAll != null) tabAll.setEnabled(activeTab != 0);
+        if (tabNoStock != null) tabNoStock.setEnabled(activeTab != 1);
+        if (tabTransit != null) tabTransit.setEnabled(activeTab != 2);
     }
 
     private void updateList() {
@@ -71,9 +84,19 @@ public class PortableTrackerWindow extends BOWindow {
         List<Map.Entry<String, FreightTrackerModule.TrackedReq>> requests = new ArrayList<>();
 
         for (Map.Entry<String, FreightTrackerModule.TrackedReq> entry : moduleView.requests.entrySet()) {
-            if (entry.getValue().isIncoming == this.viewingIncoming) {
-                requests.add(entry);
+            FreightTrackerModule.TrackedReq req = entry.getValue();
+
+            if (req.override != null && (req.override.contains("[In AE2]") || req.override.equals("Colony Crafting"))) {
+                continue;
             }
+
+            if (req.isIncoming != this.viewingIncoming) continue;
+            if (activeTab == 1 && req.status != FreightTrackerModule.TrackStatus.NO_STOCK) continue;
+            if (activeTab == 2 && req.status != FreightTrackerModule.TrackStatus.ON_TRAIN
+                    && req.status != FreightTrackerModule.TrackStatus.DELIVERING
+                    && req.status != FreightTrackerModule.TrackStatus.DISPATCHED) continue;
+
+            requests.add(entry);
         }
 
         requests.sort((a, b) -> Long.compare(b.getValue().timestamp, a.getValue().timestamp));
@@ -92,7 +115,9 @@ public class PortableTrackerWindow extends BOWindow {
                 FreightTrackerModule.TrackedReq req = entry.getValue();
 
                 Text itemText = rowPane.findPaneOfTypeByID("requestText", Text.class);
+                Text requesterText = rowPane.findPaneOfTypeByID("requesterText", Text.class);
                 Text statusText = rowPane.findPaneOfTypeByID("statusText", Text.class);
+
                 Button btnDelete = rowPane.findPaneOfTypeByID("btnDelete", Button.class);
                 Button btnDispatch = rowPane.findPaneOfTypeByID("btnDispatch", Button.class);
 
@@ -103,8 +128,18 @@ public class PortableTrackerWindow extends BOWindow {
                     });
                 }
 
+                String rawStatus = (req.override != null && !req.override.isEmpty()) ? req.override : req.status.getDisplayName();
+                String cleanStatus = rawStatus;
+                String requesterBuilding = "Colony Request";
+
+                if (rawStatus.contains("|")) {
+                    String[] parts = rawStatus.split("\\|");
+                    cleanStatus = parts[0];
+                    if (parts.length > 1) requesterBuilding = parts[1];
+                }
+
                 if (btnDispatch != null) {
-                    boolean canForceSend = req.override != null && req.override.contains("[In Stock]");
+                    boolean canForceSend = cleanStatus.contains("[In Stock]");
 
                     if (req.isIncoming && canForceSend) {
                         btnDispatch.show();
@@ -127,32 +162,36 @@ public class PortableTrackerWindow extends BOWindow {
                     String rawName = (req.itemName != null && !req.itemName.isEmpty()) ? req.itemName : "Loading...";
                     itemText.setText(Component.literal(req.amount + "x " + rawName).withStyle(net.minecraft.ChatFormatting.BLACK));
 
-                    String symbol = "• ";
-                    String statusStr = req.status.getDisplayName();
-
-                    if (req.override != null && !req.override.isEmpty() && req.status != FreightTrackerModule.TrackStatus.COMPLETED) {
-                        statusStr = "§7[" + req.override + "]";
+                    if (requesterText != null) {
+                        requesterText.setText(Component.literal("§8To: " + requesterBuilding));
                     }
 
-                    if (statusStr.contains("No Stock")) {
+                    String symbol = "• ";
+                    String finalDisplayStatus = req.status.getDisplayName();
+
+                    if (!cleanStatus.isEmpty() && req.status != FreightTrackerModule.TrackStatus.COMPLETED) {
+                        finalDisplayStatus = "§7[" + cleanStatus + "]";
+                    }
+
+                    if (finalDisplayStatus.contains("No Stock")) {
                         symbol = "§8✖ ";
-                    } else if (statusStr.contains("Delivered")) {
+                    } else if (finalDisplayStatus.contains("Delivered")) {
                         symbol = "§2✔ ";
-                    } else if (statusStr.contains("Out for Delivery")) {
+                    } else if (finalDisplayStatus.contains("Out for Delivery")) {
                         symbol = "§6➔ ";
-                    } else if (statusStr.contains("Arrived at Depot")) {
+                    } else if (finalDisplayStatus.contains("Arrived at Depot")) {
                         symbol = "§9📦 ";
-                    } else if (statusStr.contains("Transit")) {
+                    } else if (finalDisplayStatus.contains("Transit")) {
                         symbol = "§3🚂 ";
-                    } else if (statusStr.contains("Dispatched")) {
+                    } else if (finalDisplayStatus.contains("Dispatched")) {
                         symbol = "§1📤 ";
-                    } else if (statusStr.contains("Processing")) {
+                    } else if (finalDisplayStatus.contains("Processing")) {
                         symbol = "§5⚙ ";
-                    } else if (statusStr.contains("Awaiting")) {
+                    } else if (finalDisplayStatus.contains("Awaiting")) {
                         symbol = "§4⏳ ";
                     }
 
-                    statusText.setText(Component.literal(symbol + statusStr));
+                    statusText.setText(Component.literal(symbol + finalDisplayStatus));
                 }
             }
         });

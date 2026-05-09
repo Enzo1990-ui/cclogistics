@@ -15,6 +15,7 @@ import com.simibubi.create.content.logistics.BigItemStack;
 import com.simibubi.create.content.logistics.stockTicker.StockTickerBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import org.slf4j.Logger;
 import com.minecolonies.api.colony.requestsystem.requestable.Tool;
 
@@ -54,12 +55,19 @@ public class LogisticsRequestHelper {
 
         Map<String, IRequest<?>> liveRequests = new HashMap<>();
         IRequestManager manager = colony.getRequestManager();
+        Set<com.minecolonies.api.colony.requestsystem.token.IToken<?>> clipboardTokens = new HashSet<>();
 
         try {
+            if (manager.getPlayerResolver() != null) {
+                clipboardTokens.addAll(manager.getPlayerResolver().getAllAssignedRequests());
+            }
             if (manager instanceof IStandardRequestManager stdManager) {
                 var requestStore = stdManager.getRequestIdentitiesDataStore();
-                for (IRequest<?> req : requestStore.getIdentities().values()) {
-                    if (req.getId() != null) {
+                for (Map.Entry<com.minecolonies.api.colony.requestsystem.token.IToken<?>, IRequest<?>> entry : requestStore.getIdentities().entrySet()) {
+                    IRequest<?> req = entry.getValue();
+                    if (req != null && req.getId() != null) {
+                        String state = req.getState().name();
+                        if (state.equals("COMPLETED") || state.equals("CANCELLED") || state.equals("FAILED")) continue;
                         liveRequests.put(req.getId().toString(), req);
                     }
                 }
@@ -68,10 +76,29 @@ public class LogisticsRequestHelper {
 
         liveRequests.entrySet().removeIf(entry -> {
             IRequest<?> req = entry.getValue();
-            if (req == null) return true;
+            if (req == null || req.getRequester() == null) return true;
+            if (req.getShortDisplayString().getString().contains("Recipe:[")) return true;
+
             String reqClass = req.getRequester().getClass().getSimpleName().toLowerCase();
-            return reqClass.contains("warehouse") || reqClass.contains("logisticscoordinator");
+            String typeClass = req.getType().getRawType().getSimpleName().toLowerCase();
+            boolean isFreightDepot = false;
+            if (req.getRequester() instanceof IBuilding b) {
+                String bName = b.getBuildingDisplayName().toLowerCase();
+                if (bName.contains("freight") || bName.contains("depot")) {
+                    isFreightDepot = true;
+                }
+            }
+
+            return reqClass.contains("warehouse") ||
+                    reqClass.contains("logisticscoordinator") ||
+                    reqClass.contains("freight") ||
+                    typeClass.contains("delivery") ||
+                    isFreightDepot;
         });
+
+        if (forcedDispatchIds != null && !forcedDispatchIds.isEmpty()) {
+            liveRequests.keySet().retainAll(forcedDispatchIds);
+        }
 
         if (activeRequestIds != null) {
             Set<Object> currentIds = new HashSet<>(liveRequests.keySet());
@@ -100,7 +127,6 @@ public class LogisticsRequestHelper {
 
                 int amountNeeded = deliverable.getCount();
                 if (amountNeeded <= 0) amountNeeded = 1;
-
                 ItemStack itemToSend = ItemStack.EMPTY;
                 ItemStack exactGuess = deliverable.getResult();
 
@@ -121,9 +147,8 @@ public class LogisticsRequestHelper {
                 if (innerReq instanceof Food && !itemToSend.isEmpty()) {
                     amountNeeded = itemToSend.getMaxStackSize();
                 }
-
                 String missingName = "Unknown Item";
-                if (!itemToSend.isEmpty()) {
+                if (!itemToSend.isEmpty() && itemToSend.getItem() != Items.AIR) {
                     missingName = itemToSend.getHoverName().getString();
                 } else if (deliverable instanceof com.minecolonies.api.colony.requestsystem.requestable.Stack stackReq && !stackReq.getStack().isEmpty()) {
                     missingName = stackReq.getStack().getHoverName().getString();
@@ -139,6 +164,8 @@ public class LogisticsRequestHelper {
                     } catch (Exception ignored) {}
                 } else if (deliverable instanceof Food) {
                     missingName = "Food / Edibles";
+                } else {
+                    missingName = req.getShortDisplayString().getString().replaceAll("^[0-9\\-*\\s]+", "");
                 }
                 int exactStockAvailable = 0;
                 if (!itemToSend.isEmpty()) {
@@ -157,18 +184,20 @@ public class LogisticsRequestHelper {
 
                 int maxPackageCapacity = itemToSend.isEmpty() ? 64 * 9 : itemToSend.getMaxStackSize() * 9;
                 if (amountNeeded > maxPackageCapacity) amountNeeded = maxPackageCapacity;
-                if (req.canBeDelivered()) {
-                    if (trackerUpdater != null) {
-                        String courierMessage = getCourierStatus(colony, req.getId());
-                        trackerUpdater.track(id, missingName, amountNeeded, FreightTrackerModule.TrackStatus.DELIVERING, courierMessage);
-                    }
-                    continue;
-                }
-
+                String requesterName = "Colony Worker";
                 try {
                     BlockPos requesterPos = req.getRequester().getLocation().getInDimensionLocation();
                     IBuilding requesterBuilding = colony.getServerBuildingManager().getBuilding(requesterPos);
+
+                    if (req.getRequester() instanceof IBuilding br) {
+                        requesterBuilding = br;
+                    }
+
                     if (requesterBuilding != null) {
+                        String raw = requesterBuilding.getBuildingDisplayName();
+                        if (raw.contains(".")) raw = raw.substring(raw.lastIndexOf('.') + 1);
+                        requesterName = raw.substring(0, 1).toUpperCase() + raw.substring(1).toLowerCase();
+
                         ExpressModule expressModule = null;
                         for (var b : colony.getServerBuildingManager().getBuildings().values()) {
                             expressModule = b.getModule(ExpressModule.class);
@@ -182,15 +211,28 @@ public class LogisticsRequestHelper {
                         }
                     }
                 } catch (Exception ignored) {}
+                boolean isWarehouseHandling = false;
+                try {
+                    var resolver = manager.getResolverForRequest(req.getId());
+                    if (resolver != null && resolver.getClass().getSimpleName().contains("Warehouse")) {
+                        isWarehouseHandling = true;
+                    }
+                } catch (Exception ignored) {}
 
-                if (req.getClass().getSimpleName().contains("DeliveryRequest")) continue;
-                if (sentRequestIds != null && sentRequestIds.contains(id)) continue;
-
+                boolean isShipped = sentRequestIds != null && sentRequestIds.contains(id);
+                if (req.canBeDelivered() || req.getState().name().contains("FOLLOWUP") || isShipped || isWarehouseHandling) {
+                    if (trackerUpdater != null) {
+                        String courierMessage = getCourierStatus(colony, req.getId(), isShipped);
+                        trackerUpdater.track(id, missingName, amountNeeded, FreightTrackerModule.TrackStatus.DELIVERING, courierMessage + "|" + requesterName);
+                    }
+                    continue;
+                }
+                boolean isStuck = clipboardTokens.contains(req.getId());
                 boolean forceDispatch = forcedDispatchIds != null && forcedDispatchIds.contains(id);
                 boolean colonyCanResolve = false;
                 boolean activelyCrafting = req.hasChildren();
 
-                if (!forceDispatch) {
+                if (!forceDispatch && !isStuck) {
                     if (activelyCrafting) {
                         colonyCanResolve = true;
                     } else {
@@ -207,12 +249,13 @@ public class LogisticsRequestHelper {
                 if (colonyCanResolve) {
                     if (trackerUpdater != null) {
                         String overrideMsg = (exactStockAvailable >= amountNeeded) ? "Colony Crafting [In Stock]" : "Colony Crafting";
-                        trackerUpdater.track(id, missingName, amountNeeded, FreightTrackerModule.TrackStatus.PROCESSING, overrideMsg);
+                        trackerUpdater.track(id, missingName, amountNeeded, FreightTrackerModule.TrackStatus.PROCESSING, overrideMsg + "|" + requesterName);
                     }
                     continue;
                 }
-                if (itemToSend.isEmpty()) {
-                    if (trackerUpdater != null) trackerUpdater.track(id, missingName, amountNeeded, FreightTrackerModule.TrackStatus.NO_STOCK, "No Stock");
+                if (itemToSend.isEmpty() || exactStockAvailable == 0) {
+                    String msg = isStuck ? "§4Stuck! No Stock" : "No Stock";
+                    if (trackerUpdater != null) trackerUpdater.track(id, missingName, amountNeeded, FreightTrackerModule.TrackStatus.NO_STOCK, msg + "|" + requesterName);
                     continue;
                 }
 
@@ -235,12 +278,12 @@ public class LogisticsRequestHelper {
                     if (sentRequestIds != null) sentRequestIds.add(id);
                     if (trackerUpdater != null) {
                         FreightTrackerModule.TrackStatus sentStatus = orderCacher != null ? FreightTrackerModule.TrackStatus.AWAITING_COORDINATOR : FreightTrackerModule.TrackStatus.DISPATCHED;
-                        trackerUpdater.track(id, missingName, amountNeeded, sentStatus, orderCacher != null ? "Awaiting Coordinator" : "Dispatched");
+                        trackerUpdater.track(id, missingName, amountNeeded, sentStatus, orderCacher != null ? "Awaiting Coordinator" : "Dispatched|" + requesterName);
                     }
 
                 } else {
-                    String msg = (exactStockAvailable == 0) ? "No Stock" : (amountNeeded - exactStockAvailable) + " Missing";
-                    if (trackerUpdater != null) trackerUpdater.track(id, missingName, amountNeeded, FreightTrackerModule.TrackStatus.NO_STOCK, msg);
+                    String msg = isStuck ? "§4Stuck! " + (amountNeeded - exactStockAvailable) + " Missing" : (amountNeeded - exactStockAvailable) + " Missing";
+                    if (trackerUpdater != null) trackerUpdater.track(id, missingName, amountNeeded, FreightTrackerModule.TrackStatus.NO_STOCK, msg + "|" + requesterName);
                 }
 
             } catch (Exception e) {
@@ -249,36 +292,38 @@ public class LogisticsRequestHelper {
         }
     }
 
-    private static String getCourierStatus(IColony colony, com.minecolonies.api.colony.requestsystem.token.IToken<?> requestToken) {
+    private static String getCourierStatus(IColony colony, com.minecolonies.api.colony.requestsystem.token.IToken<?> requestToken, boolean isShipped) {
         try {
             IRequestManager manager = colony.getRequestManager();
             com.minecolonies.api.colony.requestsystem.resolver.IRequestResolver<?> resolver = manager.getResolverForRequest(requestToken);
 
             if (resolver != null) {
+                if (resolver.getClass().getSimpleName().contains("Warehouse")) {
+                    return "§3Colony Warehouse";
+                }
+
                 com.minecolonies.api.colony.requestsystem.token.IToken<?> courierToken = resolver.getId();
-                com.minecolonies.api.colony.requestsystem.data.IRequestSystemDeliveryManJobDataStore deliveryStore =
-                        manager.getDataStoreManager().get(
-                                courierToken,
-                                com.google.common.reflect.TypeToken.of(com.minecolonies.api.colony.requestsystem.data.IRequestSystemDeliveryManJobDataStore.class)
-                        );
+                var deliveryStore = manager.getDataStoreManager().get(
+                        courierToken,
+                        com.google.common.reflect.TypeToken.of(com.minecolonies.api.colony.requestsystem.data.IRequestSystemDeliveryManJobDataStore.class)
+                );
 
                 if (deliveryStore != null) {
                     if (deliveryStore.getOngoingDeliveries() != null && deliveryStore.getOngoingDeliveries().contains(requestToken)) {
-                        return "Courier is delivering now!";
+                        return "§2In Transit (With Courier)";
                     }
                     if (deliveryStore.getQueue() != null) {
-                        int stops = 0;
                         for (com.minecolonies.api.colony.requestsystem.token.IToken<?> queuedToken : deliveryStore.getQueue()) {
-                            stops++;
                             if (queuedToken.equals(requestToken)) {
-                                return "Courier En Route (" + stops + (stops == 1 ? " stop away)" : " stops away)");
+                                return isShipped ? "§1Waiting at Depot/Warehouse" : "Awaiting Dispatch";
                             }
                         }
                     }
                 }
             }
         } catch (Exception ignored) {}
-        return "Courier En Route";
+
+        return isShipped ? "§1Waiting at Depot/Warehouse" : "Processing";
     }
 
     private static boolean canColonyCraft(IColony colony, IDeliverable deliverable, String missingName) {

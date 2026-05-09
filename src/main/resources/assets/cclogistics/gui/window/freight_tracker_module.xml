@@ -2,21 +2,25 @@
     <layout source="minecolonies:gui/layouthuts/layouthutpageactions.xml"/>
     <image source="minecolonies:textures/gui/builderhut/builder_paper.png" size="190 244" pos="0 0"/>
 
-    <text id="title" size="190 12" pos="20 15" color="black" label="Active Freight Requests"/>
+    <text id="title" size="190 12" pos="20 12" color="black" label="Freight Logistics"/>
 
-    <button id="btnIncoming" size="60 15" pos="20 30" label="Incoming"/>
-    <button id="btnOutgoing" size="60 15" pos="110 30" label="Outgoing"/>
+    <button id="btnIncoming" size="60 15" pos="25 25" label="Incoming" color="black"/>
+    <button id="btnOutgoing" size="60 15" pos="105 25" label="Outgoing" color="black"/>
 
-    <list id="requestList" size="170 170" pos="10 50">
-        <box size="100% 26" linewidth="1">
-            <text id="requestText" size="140 10" pos="2 2" color="black" textscale="0.8"/>
-            <text id="statusText" size="130 10" pos="2 14" color="black" textscale="0.8"/>
+    <button id="tabAll" size="40 12" pos="20 42" label="All" color="black" source="minecolonies:textures/gui/builderhut/builder_button_small.png"/>
+    <button id="tabNoStock" size="55 12" pos="65 42" label="No Stock" color="black" source="minecolonies:textures/gui/builderhut/builder_button_small.png"/>
+    <button id="tabTransit" size="50 12" pos="125 42" label="Transit" color="black" source="minecolonies:textures/gui/builderhut/builder_button_small.png"/>
+
+    <list id="requestList" size="170 155" pos="10 60">
+        <box size="100% 36" linewidth="1">
+            <text id="requestText" size="145 10" pos="2 2" color="black" textscale="0.8"/>
+            <text id="requesterText" size="145 10" pos="2 12" color="dark_gray" textscale="0.7"/>
+            <text id="statusText" size="135 10" pos="2 22" color="black" textscale="0.7"/>
 
             <button id="btnDelete" label="X" size="10 10" pos="155 2" color="dark_red" source="minecolonies:textures/gui/builderhut/builder_button_small.png" />
-
-            <button id="btnDispatch" label="Send" size="25 10" pos="140 14" source="minecolonies:textures/gui/builderhut/builder_button_small.png" />
+            <button id="btnDispatch" label="Send" size="25 10" pos="140 22" source="minecolonies:textures/gui/builderhut/builder_button_small.png" />
         </box>
     </list>
 
-    <button id="btnPrintClipboard" label="Print Clipboard" size="100 15" pos="45 225" source="minecolonies:textures/gui/builderhut/builder_button_medium.png" color="black" />
+    <button id="btnPrintClipboard" label="Print Clipboard" size="100 15" pos="45 220" source="minecolonies:textures/gui/builderhut/builder_button_medium.png" color="black" />
 </window>

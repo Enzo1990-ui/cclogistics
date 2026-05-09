@@ -1,7 +1,6 @@
 package com.ogtenzohd.cclogistics.colony.ai;
 
 import com.minecolonies.api.colony.buildings.IBuilding;
-import com.minecolonies.api.colony.requestsystem.requestable.Stack;
 import com.minecolonies.api.colony.requestsystem.token.IToken;
 import com.minecolonies.api.crafting.ItemStorage;
 import com.minecolonies.api.entity.citizen.Skill;
@@ -220,9 +219,12 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
                             if (CCLConfig.INSTANCE.shouldDebug(CCLConfig.DebugLevel.CITIZENS)) {
                                 LOGGER.info("[LogisticsAI] EXCESS DETECTED: " + itemName + " | Total in DB: " + entry.getValue() + " | Threshold: " + threshold + " | Pending Pickups: " + alreadyRequestedAmount + " | Actionable Excess: " + unhandledExcess);
                             }
+
                             ItemStack requestStack = referenceStack.copy();
                             requestStack.setCount(amountToRequestThisTrip);
-                            IToken<?> newReq = job.getCitizen().createRequest(new Stack(requestStack));
+                            com.minecolonies.api.colony.requestsystem.requestable.Stack myStack = new com.minecolonies.api.colony.requestsystem.requestable.Stack(requestStack);
+                            myStack.setCanBeResolvedByBuilding(false);
+                            IToken<?> newReq = job.getCitizen().createRequest(myStack);
 
                             if (newReq != null) {
                                 pendingPickups.add(new PendingPickup(itemName, amountToRequestThisTrip, now));
