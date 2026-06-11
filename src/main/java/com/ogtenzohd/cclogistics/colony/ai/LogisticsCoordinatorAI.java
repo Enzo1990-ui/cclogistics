@@ -271,9 +271,6 @@ public class LogisticsCoordinatorAI extends AbstractEntityAIBasic<LogisticsCoord
 
                         for (ManifestEntry order : clipboardCacheB) {
                             ItemStack itemToSend = order.item.copy();
-                            net.minecraft.world.item.component.CustomData.update(net.minecraft.core.component.DataComponents.CUSTOM_DATA, itemToSend, tag -> {
-                                tag.putString("cclogistics:tracking_id", order.requestId);
-                            });
                             com.ogtenzohd.cclogistics.util.LogisticsBridge.sendPackage(
                                     depotBE.getStockTicker(),
                                     itemToSend,

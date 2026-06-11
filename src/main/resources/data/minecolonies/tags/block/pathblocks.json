@@ -1,6 +1,13 @@
 {
   "replace": false,
   "values": [
-    "cclogistics:logistics_path"
+    "cclogistics:logistics_path",
+    "cclogistics:illuminated_white_path",
+    "cclogistics:black_logistics_path",
+    "cclogistics:black_logistics_path",
+    "cclogistics:mossy_logistics_path",
+    "cclogistics:illuminated_path",
+    "cclogistics:illuminated_black_path",
+    "cclogistics:illuminated_mossy_path"
   ]
 }

@@ -264,9 +264,6 @@ public class LogisticsRequestHelper {
                         orderCacher.cacheOrder(itemToSend.copy(), amountNeeded, targetAddress, id);
                     } else {
                         ItemStack finalItem = itemToSend.copy();
-                        net.minecraft.world.item.component.CustomData.update(net.minecraft.core.component.DataComponents.CUSTOM_DATA, finalItem, tag -> {
-                            tag.putString("cclogistics:tracking_id", id);
-                        });
 
                         boolean success = LogisticsBridge.sendPackage(ticker, finalItem, amountNeeded, targetAddress, null);
                         if (success) {
